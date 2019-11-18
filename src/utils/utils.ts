@@ -1,8 +1,8 @@
 import * as path from 'path'
-import * as fs from 'fs'
 import { workspace } from 'vscode'
-import { SUPPORTED_FRAMEWORKS } from '../meta'
-import { Log } from '.'
+import _ from 'lodash'
+import { PendingWrite, Config } from '../core'
+import { Log, File } from '.'
 
 export function caseInsensitiveMatch (a: string, b: string) {
   return a.toUpperCase() === b.toUpperCase()
@@ -66,24 +66,31 @@ export function escapeMarkdown (text: string) {
     .replace(/\)/g, '\\)')
 }
 
-export function isVueI18nProject (projectUrl: string): boolean {
+export function getPackageDependencies (projectUrl: string): string[] {
   if (!projectUrl || !workspace.workspaceFolders)
-    return false
+    return []
 
   try {
-    const rawPackageJSON = fs.readFileSync(`${projectUrl}/package.json`, 'utf-8')
+    const rawPackageJSON = File.readSync(`${projectUrl}/package.json`)
     const {
       dependencies = {},
       devDependencies = {},
+      peerDependencies = {},
     } = JSON.parse(rawPackageJSON)
 
-    for (const framework of SUPPORTED_FRAMEWORKS) {
-      if (framework in dependencies || framework in devDependencies)
-        return true
-    }
+    return [...Object.keys(dependencies), ...Object.keys(devDependencies), ...Object.keys(peerDependencies)]
   }
   catch (err) {
     Log.info('Error on parsing package.json')
   }
-  return false
+  return []
+}
+
+export async function applyPendingToObject (obj: any, pending: PendingWrite) {
+  const keyStyle = await Config.requestKeyStyle()
+  if (keyStyle === 'flat')
+    obj[pending.keypath] = pending.value
+  else
+    _.set(obj, pending.keypath, pending.value)
+  return obj
 }

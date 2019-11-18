@@ -1,6 +1,7 @@
 import { window, DecorationOptions, Range, Disposable, workspace } from 'vscode'
 import { Global, KeyDetector, Config, Loader, CurrentFile } from '../core'
 import { ExtensionModule } from '../modules'
+import { createHover } from './hover'
 
 const noneDecorationType = window.createTextEditorDecorationType({})
 
@@ -17,10 +18,16 @@ const annotation: ExtensionModule = (ctx) => {
     if (!activeTextEditor)
       return
 
-    const loader: Loader = CurrentFile.loader
     const document = activeTextEditor.document
+    if (!Global.isLanguageIdSupported(document.languageId))
+      return
+
+    const annotationDelimiter = Config.annotationDelimiter
+
+    const loader: Loader = CurrentFile.loader
     const annotations: DecorationOptions[] = []
     const underlines: DecorationOptions[] = []
+    const maxLength = Config.annotationMaxLength
 
     const keys = KeyDetector.getKeys(document)
     // get all keys of current file
@@ -35,15 +42,15 @@ const annotation: ExtensionModule = (ctx) => {
       if (Config.annotations) {
         let missing = false
 
-        let text = loader.getValueByKey(key)
+        let text = loader.getValueByKey(key, undefined, maxLength)
         // fallback to source
         if (!text && Config.displayLanguage !== Config.sourceLanguage) {
-          text = loader.getValueByKey(key, Config.sourceLanguage)
+          text = loader.getValueByKey(key, Config.sourceLanguage, maxLength)
           missing = true
         }
 
         if (text)
-          text = `◽️${text}`
+          text = `${annotationDelimiter}${text}`
 
         const color = missing
           ? 'rgba(153, 153, 153, .3)'
@@ -62,6 +69,7 @@ const annotation: ExtensionModule = (ctx) => {
               fontStyle: 'normal',
             },
           },
+          hoverMessage: createHover(key, maxLength),
         })
       }
     })

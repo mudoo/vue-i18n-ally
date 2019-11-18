@@ -2,6 +2,110 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.36.0](https://github.com/antfu/vue-i18n-ally/compare/v0.35.0...v0.36.0) (2019-11-18)
+
+
+### ⚡ Features
+
+* writing for SFC ([7acb628](https://github.com/antfu/vue-i18n-ally/commit/7acb6280b837e3e9d051558adf58812ebf3aec6f))
+
+
+### 🔮 Refactor
+
+* **sfc:** integrate with `vue-i18n-locale-message` ([4da33f4](https://github.com/antfu/vue-i18n-ally/commit/4da33f41ba4df31f92ec0f8c834e910cec8d20d7))
+
+## [0.35.0](https://github.com/antfu/vue-i18n-ally/compare/v0.34.6...v0.35.0) (2019-11-18)
+
+
+### 🐞 Bug Fixes
+
+* forceEnable accept an array of framework ids ([3b0c807](https://github.com/antfu/vue-i18n-ally/commit/3b0c807ab6104fe643ae286e376846c314a7b863))
+
+
+### 🌍 Internationalization
+
+* add Spanish translation, thanks @Baltimer ([#111](https://github.com/antfu/vue-i18n-ally/issues/111)) ([c303a73](https://github.com/antfu/vue-i18n-ally/commit/c303a733f075057ecaacd64ff75a1b4e2b8edc79))
+
+### [0.34.6](https://github.com/antfu/vue-i18n-ally/compare/v0.34.5...v0.34.6) (2019-11-17)
+
+
+### 📚 Documentations
+
+* add screenshots ([d575f66](https://github.com/antfu/vue-i18n-ally/commit/d575f668bb000a0695a43ce51d3ec5887caabbaa))
+* polish README ([84f79ed](https://github.com/antfu/vue-i18n-ally/commit/84f79ed76d92c65e4f432fc1f51e7012795bcb74))
+* update README ([0fba9db](https://github.com/antfu/vue-i18n-ally/commit/0fba9db8a0b58a25aeb080b163f06262ef06463e))
+* update README ([e1f4cd7](https://github.com/antfu/vue-i18n-ally/commit/e1f4cd77ff688ee0333402b087e0f4e3cea95550))
+
+
+### 🔮 Refactor
+
+* extract key reg to frameworks ([41e3239](https://github.com/antfu/vue-i18n-ally/commit/41e323910b669cf0c58f40954014aa67946e1bdb))
+* extract language selectors and refactor templates ([012222c](https://github.com/antfu/vue-i18n-ally/commit/012222c7b429d3c2b783ad7ef344e35db2ea287e))
+
+### [0.34.5](https://github.com/antfu/vue-i18n-ally/compare/v0.34.4...v0.34.5) (2019-11-14)
+
+
+### ⚡ Features
+
+* fullfill keys cross all locales ([8c1734c](https://github.com/antfu/vue-i18n-ally/commit/8c1734c0f1c98793953f98b9e65a8ba3b7127f77))
+
+### [0.34.4](https://github.com/antfu/vue-i18n-ally/compare/v0.34.3...v0.34.4) (2019-11-14)
+
+
+### 🐞 Bug Fixes
+
+* type error ([e61cbeb](https://github.com/antfu/vue-i18n-ally/commit/e61cbeb2ed1329dfdfcabd76afcac8d30640b5f5))
+
+### [0.34.3](https://github.com/antfu/vue-i18n-ally/compare/v0.34.2...v0.34.3) (2019-11-14)
+
+
+### 🐞 Bug Fixes
+
+* improve key navigation for json and yaml ([200a5ad](https://github.com/antfu/vue-i18n-ally/commit/200a5adabaa49520507b8edda8177b902236e407))
+
+### [0.34.2](https://github.com/antfu/vue-i18n-ally/compare/v0.34.1...v0.34.2) (2019-11-14)
+
+
+### 🐞 Bug Fixes
+
+* bom encoding detection ([2cf71c4](https://github.com/antfu/vue-i18n-ally/commit/2cf71c4e96a3fb5332603f5d4c928e07fb9a7218))
+
+### [0.34.1](https://github.com/antfu/vue-i18n-ally/compare/v0.34.0...v0.34.1) (2019-11-13)
+
+
+### ⚡ Features
+
+* goto file for locale ([9283e5f](https://github.com/antfu/vue-i18n-ally/commit/9283e5f19f604782dcd16e399e06561051b48486))
+
+## [0.34.0](https://github.com/antfu/vue-i18n-ally/compare/v0.33.1...v0.34.0) (2019-11-13)
+
+
+### 🐞 Bug Fixes
+
+* imporve logical for annonation display ([2cb5cb4](https://github.com/antfu/vue-i18n-ally/commit/2cb5cb4167f29b2ce5dcea15981d057a04129cdb))
+
+
+### ⚡ Features
+
+* hover for annotation in locale ([e4e9d6d](https://github.com/antfu/vue-i18n-ally/commit/e4e9d6d2a8cb46b66a21c559d01afa2d8d64f146))
+* support for annonation in json locale files! ([43dbe52](https://github.com/antfu/vue-i18n-ally/commit/43dbe52133b48f6fec047ff9139c812c684d5d60))
+* yaml annotation support ([d351079](https://github.com/antfu/vue-i18n-ally/commit/d351079844acd1109b51920aa0ddd7bfacd3b98d))
+
+### [0.33.1](https://github.com/antfu/vue-i18n-ally/compare/v0.33.0...v0.33.1) (2019-11-13)
+
+
+### 🐞 Bug Fixes
+
+* edit key in progress view ([29f03ec](https://github.com/antfu/vue-i18n-ally/commit/29f03ec5725f7450eaac79737b70d4c4036b64fc))
+
+## [0.33.0](https://github.com/antfu/vue-i18n-ally/compare/v0.32.0...v0.33.0) (2019-11-13)
+
+
+### ⚡ Features
+
+* new config for customize the delimiter of annotations ([4dd8eeb](https://github.com/antfu/vue-i18n-ally/commit/4dd8eeb47b342a5cc281f59f8d156cd1f632f91d))
+* support multiple encodings, thanks [@mudoo](https://github.com/mudoo) ([#105](https://github.com/antfu/vue-i18n-ally/issues/105)) ([a23cc7a](https://github.com/antfu/vue-i18n-ally/commit/a23cc7a6b506b7473417ccc9f41bfa39d76edc7e))
+
 ## [0.32.0](https://github.com/antfu/vue-i18n-ally/compare/v0.31.2...v0.32.0) (2019-11-08)
 
 

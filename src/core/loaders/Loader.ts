@@ -1,15 +1,8 @@
 import { Disposable, EventEmitter } from 'vscode'
 import _ from 'lodash'
 import { Log } from '../../utils'
-import { LocaleTree, LocaleNode, LocaleRecord, FlattenLocaleTree, Coverage } from '../types'
+import { LocaleTree, LocaleNode, LocaleRecord, FlattenLocaleTree, Coverage, FileInfo, PendingWrite, NodeOptions } from '../types'
 import { Config, Global } from '..'
-
-export interface NodeOptions{
-  locale: string
-  readonly?: boolean
-  filepath: string
-  sfc?: boolean
-}
 
 export abstract class Loader extends Disposable {
   protected _disposables: Disposable[] = []
@@ -35,6 +28,10 @@ export abstract class Loader extends Disposable {
 
   get flattenLocaleTree () {
     return this._flattenLocaleTree
+  }
+
+  get files (): FileInfo[] {
+    return []
   }
 
   splitKeypath (keypath: string): string[] {
@@ -68,6 +65,7 @@ export abstract class Loader extends Disposable {
       keyname,
       isCollection,
       sfc: options.sfc,
+      meta: options.meta,
     })
     tree.values[options.locale] = data
     for (const [key, value] of Object.entries(data)) {
@@ -107,6 +105,7 @@ export abstract class Loader extends Disposable {
           keyname: key,
           readonly: options.readonly,
           sfc: options.sfc,
+          meta: options.meta,
         })
         tree.setChild(key, node)
         this._flattenLocaleTree[node.keypath] = node
@@ -121,6 +120,7 @@ export abstract class Loader extends Disposable {
           locale: options.locale,
           filepath: options.filepath,
           sfc: options.sfc,
+          meta: options.meta,
           readonly: options.readonly,
         })
       }
@@ -159,10 +159,9 @@ export abstract class Loader extends Disposable {
     return undefined
   }
 
-  getValueByKey (keypath: string, locale?: string, clamp = true, stringifySpace?: number) {
+  getValueByKey (keypath: string, locale?: string, maxlength = 0, stringifySpace?: number) {
     locale = locale || Config.displayLanguage
 
-    const maxlength = Config.annotationMaxLength
     const node = this.getTreeNodeByKey(keypath)
 
     if (!node)
@@ -177,7 +176,7 @@ export abstract class Loader extends Disposable {
         .replace(/"(\w+?)":/g, ' $1:')
         .replace(/}/, ' }')
 
-      if (clamp && maxlength && text.length > maxlength) {
+      if (maxlength && text.length > maxlength) {
         if (node.isCollection)
           text = '[…]'
         else
@@ -187,7 +186,9 @@ export abstract class Loader extends Disposable {
     }
     else {
       let value = node.getValue(locale)
-      if (clamp && maxlength && value.length > maxlength)
+      if (!value)
+        return
+      if (maxlength && value.length > maxlength)
         value = `${value.substring(0, maxlength)}…`
       return value
     }
@@ -238,6 +239,7 @@ export abstract class Loader extends Disposable {
           shadow: true,
           keyname: node.keyname,
           keypath: node.keypath,
+          meta: node.meta,
           filepath: this.getShadowFilePath(node.keypath, locale),
           readonly: node.readonly,
         })
@@ -245,6 +247,12 @@ export abstract class Loader extends Disposable {
     })
 
     return locales
+  }
+
+  abstract async write (pendings: PendingWrite | PendingWrite[]): Promise<void>
+
+  canHandleWrites (pending: PendingWrite) {
+    return false
   }
 
   protected onDispose () {

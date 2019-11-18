@@ -1,5 +1,6 @@
-import { promises as fs } from 'fs'
+import { TextDocument } from 'vscode'
 import { KeyStyle } from '../core'
+import { File } from '../utils'
 
 export interface PositionRange {
   start: number
@@ -9,6 +10,12 @@ export interface PositionRange {
 export interface ParserOptions {
   indent: number
   tab: string
+}
+
+export interface KeyInDocument {
+  start: number
+  end: number
+  key: string
 }
 
 export abstract class Parser {
@@ -29,18 +36,30 @@ export abstract class Parser {
   }
 
   async load (filepath: string): Promise<object> {
-    const raw = await fs.readFile(filepath, 'utf-8')
+    const raw = await File.read(filepath)
     return await this.parse(raw)
   }
 
   async save (filepath: string, object: object, sort: boolean) {
     const text = await this.dump(object, sort)
-    await fs.writeFile(filepath, text, 'utf-8')
+    await File.write(filepath, text)
   }
 
   abstract parse(text: string): Promise<object>
 
   abstract dump(object: object, sort: boolean): Promise<string>
 
-  abstract navigateToKey(text: string, keypath: string, keystyle: KeyStyle): PositionRange | undefined
+  parseAST (text: string): KeyInDocument[] {
+    return []
+  }
+
+  navigateToKey (text: string, keypath: string, keystyle: KeyStyle) {
+    return this.parseAST(text).find(k => k.key === keypath)
+  }
+
+  annotationSupported = false
+  annotationLanguageIds: string[] = []
+  annotationGetKeys (document: TextDocument) {
+    return this.parseAST(document.getText())
+  }
 }

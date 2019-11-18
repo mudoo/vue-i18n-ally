@@ -2,7 +2,7 @@
   "name": "vue-i18n-ally",
   "displayName": "%extname%",
   "description": "🌍 Better Vue i18n experiences with VS Code",
-  "version": "0.32.0",
+  "version": "0.36.0",
   "publisher": "antfu",
   "engines": {
     "vscode": "^1.29.0"
@@ -109,6 +109,7 @@
       },
       {
         "command": "extension.vue-i18n-ally.fulfill-keys",
+        "category": "%extname%",
         "title": "%command.fulfill_keys%",
         "icon": {
           "light": "./res/light/fulfill.svg",
@@ -161,6 +162,10 @@
         {
           "command": "extension.vue-i18n-ally.open-url",
           "when": "config.no_exits"
+        },
+        {
+          "command": "extension.vue-i18n-ally.fulfill-keys",
+          "when": "vue-i18n-ally-enabled"
         }
       ],
       "view/item/context": [
@@ -208,12 +213,12 @@
         {
           "command": "extension.vue-i18n-ally.locale-visibility-show",
           "when": "view =~ /locales-progress/ && viewItem =~ /show/",
-          "group": "inline"
+          "group": "inline@4"
         },
         {
           "command": "extension.vue-i18n-ally.locale-visibility-hide",
           "when": "view =~ /locales-progress/ && viewItem =~ /hide/",
-          "group": "inline"
+          "group": "inline@4"
         }
       ]
     },
@@ -272,6 +277,11 @@
           },
           "description": "%config.locales_paths%"
         },
+        "vue-i18n-ally.encoding": {
+          "type": "string",
+          "default": "auto",
+          "description": "%config.encoding%"
+        },
         "vue-i18n-ally.sourceLanguage": {
           "type": "string",
           "default": "en",
@@ -316,6 +326,11 @@
           "default": 40,
           "description": "%config.annotation_max_length%"
         },
+        "vue-i18n-ally.annotationDelimiter": {
+          "type": "string",
+          "default": "·",
+          "description": "%config.annotation_delimiter%"
+        },
         "vue-i18n-ally.filenameMatchRegex": {
           "type": "string",
           "default": "",
@@ -332,7 +347,10 @@
           "description": "%config.full_reload_on_changed%"
         },
         "vue-i18n-ally.forceEnabled": {
-          "type": "boolean",
+          "type": [
+            "boolean",
+            "array"
+          ],
           "default": false,
           "description": "%config.force_enabled%"
         },
@@ -411,11 +429,12 @@
     "@types/js-yaml": "3.12.1",
     "@types/json-stable-stringify": "1.0.32",
     "@types/json5": "0.0.30",
-    "@types/lodash": "4.14.146",
+    "@types/lodash": "4.14.148",
     "@types/mocha": "5.2.7",
-    "@types/node": "12.12.7",
-    "@typescript-eslint/eslint-plugin": "2.6.1",
-    "@typescript-eslint/parser": "2.6.1",
+    "@types/node": "12.12.8",
+    "@types/yaml": "^1.2.0",
+    "@typescript-eslint/eslint-plugin": "2.7.0",
+    "@typescript-eslint/parser": "2.7.0",
     "conventional-github-releaser": "3.1.3",
     "eslint": "6.6.0",
     "rimraf": "3.0.0",
@@ -423,12 +442,16 @@
     "ts-loader": "6.2.1",
     "vscode": "1.1.36",
     "webpack": "4.41.2",
-    "webpack-cli": "3.3.10"
+    "webpack-cli": "3.3.10",
+    "webpack-filter-warnings-plugin": "^1.2.1"
   },
   "dependencies": {
     "esm": "^3.2.25",
     "fast-glob": "^3.0.0",
+    "iconv-lite": "^0.5.0",
     "js-yaml": "^3.13.1",
+    "jschardet": "^2.1.1",
+    "json-source-map": "^0.6.1",
     "json-stable-stringify": "^1.0.1",
     "json5": "^2.1.0",
     "limax": "^2.0.0",
@@ -436,6 +459,9 @@
     "node-html-parser": "^1.1.16",
     "translation.js": "^0.7.8",
     "ts-node": "^8.3.0",
-    "typescript": "3.7.2"
+    "typescript": "3.7.2",
+    "vue": "^2.6.10",
+    "vue-i18n-locale-message": "^0.5.0",
+    "yaml": "^1.7.2"
   }
 }

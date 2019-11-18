@@ -1,7 +1,8 @@
 import _ from 'lodash'
 import { Disposable } from 'vscode'
-import { LocaleNode, LocaleTree, FlattenLocaleTree } from '../types'
+import { LocaleNode, LocaleTree, FlattenLocaleTree, PendingWrite } from '../types'
 import { Translator } from '../Translator'
+import { Log } from '../../utils'
 import { Loader } from './Loader'
 
 export class ComposedLoader extends Loader {
@@ -15,6 +16,10 @@ export class ComposedLoader extends Loader {
   _loaders: Loader[] = []
   _watchers: Disposable[] = []
   _isFlattenLocaleTreeDirty = true
+
+  get files () {
+    return _.flatten(this._loaders.map(l => l.files))
+  }
 
   get loaders () {
     return this._loaders
@@ -30,6 +35,10 @@ export class ComposedLoader extends Loader {
       }),
     )
     // this._onDidChange.fire(this.name)
+  }
+
+  get loadersReversed () {
+    return this._loaders.reverse()
   }
 
   get root (): LocaleTree {
@@ -63,7 +72,7 @@ export class ComposedLoader extends Loader {
   }
 
   getShadowFilePath (keypath: string, locale: string) {
-    for (const loader of this._loaders.reverse()) {
+    for (const loader of this.loadersReversed) {
       const value = loader.getShadowFilePath(keypath, locale)
       if (value)
         return value
@@ -71,7 +80,7 @@ export class ComposedLoader extends Loader {
   }
 
   getTreeNodeByKey (keypath: string, tree?: LocaleTree) {
-    for (const loader of this._loaders.reverse()) {
+    for (const loader of this.loadersReversed) {
       const value = loader.getTreeNodeByKey(keypath, tree)
       if (value)
         return value
@@ -79,16 +88,16 @@ export class ComposedLoader extends Loader {
   }
 
   getFilepathByKey (keypath: string, locale?: string) {
-    for (const loader of this._loaders.reverse()) {
+    for (const loader of this.loadersReversed) {
       const value = loader.getFilepathByKey(keypath, locale)
       if (value)
         return value
     }
   }
 
-  getValueByKey (keypath: string, locale?: string, clamp = true, stringifySpace?: number) {
-    for (const loader of this._loaders.reverse()) {
-      const value = loader.getValueByKey(keypath, locale, clamp, stringifySpace)
+  getValueByKey (keypath: string, locale?: string, maxLength = 0, stringifySpace?: number) {
+    for (const loader of this.loadersReversed) {
+      const value = loader.getValueByKey(keypath, locale, maxLength, stringifySpace)
       if (value)
         return value
     }
@@ -96,6 +105,35 @@ export class ComposedLoader extends Loader {
 
   fire (src?: string) {
     this._onDidChange.fire(src || this.name)
+  }
+
+  async write (pendings: PendingWrite | PendingWrite[]) {
+    if (!Array.isArray(pendings))
+      pendings = [pendings]
+    pendings = pendings.filter(i => i)
+
+    console.log(pendings)
+
+    const distrubtedPendings: PendingWrite[][] = new Array(this.loadersReversed.length).fill(null).map(_ => [])
+    const loaders = this.loadersReversed
+    for (const pending of pendings) {
+      let handled = false
+      loaders.forEach((loader, index) => {
+        if (handled)
+          return
+        if (loader.canHandleWrites(pending)) {
+          distrubtedPendings[index].push(pending)
+          handled = true
+        }
+      })
+      if (!handled)
+        Log.info(`💥 Unhandled write ${JSON.stringify(pending)}`)
+    }
+
+    await Promise.all(loaders.map(async (loader, index) => {
+      if (distrubtedPendings[index] && distrubtedPendings[index].length)
+        await loader.write(distrubtedPendings[index])
+    }))
   }
 
   // TODO:sfc merge tree nodes

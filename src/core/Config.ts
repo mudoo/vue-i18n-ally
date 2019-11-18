@@ -10,6 +10,7 @@ export class Config {
     'localesPaths',
     'filenameMatchRegex',
     'includeSubfolders',
+    'encoding',
   ]
 
   static readonly refreshConfigs = [
@@ -77,8 +78,12 @@ export class Config {
     this.setConfig('annotationMaxLength', value, true)
   }
 
-  static get forceEnabled (): boolean {
-    return this.getConfig<boolean>('forceEnabled') || false
+  static get annotationDelimiter (): string {
+    return this.getConfig<string>('annotationDelimiter') || ''
+  }
+
+  static get forceEnabled (): boolean | string[] {
+    return this.getConfig<boolean|string[]>('forceEnabled') || false
   }
 
   static get dirStructure (): 'auto' | 'file' | 'dir' {
@@ -197,6 +202,10 @@ export class Config {
     if (this.extension)
       return this.extension.extensionPath
     return undefined
+  }
+
+  static get encoding () {
+    return this.getConfig<string>('encoding') || 'auto'
   }
 
   // config

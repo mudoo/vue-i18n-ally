@@ -4,12 +4,27 @@ import { Range } from 'vscode'
 import { getKeyname } from '../utils/utils'
 import { Config } from './Config'
 
-export interface ParsedFile {
+export interface FileInfo {
   filepath: string
   locale: string
-  value: object
   nested: boolean
   readonly?: boolean
+}
+
+export interface ParsedFile extends FileInfo {
+  value: object
+}
+
+export interface NodeOptions{
+  locale: string
+  readonly?: boolean
+  filepath: string
+  sfc?: boolean
+  meta?: NodeMeta
+}
+
+export interface NodeMeta {
+  sfcSectionIndex?: number
 }
 
 export interface INode {
@@ -19,6 +34,7 @@ export interface INode {
   shadow?: boolean
   readonly?: boolean
   sfc?: boolean
+  meta?: NodeMeta
 }
 
 export interface ILocaleRecord extends INode {
@@ -43,6 +59,7 @@ abstract class BaseNode implements INode {
   readonly shadow?: boolean
   readonly readonly?: boolean
   readonly sfc?: boolean
+  readonly meta?: NodeMeta
 
   constructor (data: INode) {
     this.keypath = data.keypath
@@ -51,6 +68,7 @@ abstract class BaseNode implements INode {
     this.shadow = data.shadow
     this.readonly = data.readonly
     this.sfc = data.sfc
+    this.meta = data.meta
   }
 }
 
@@ -137,12 +155,14 @@ export interface PendingWrite {
   keypath: string
   filepath?: string
   value?: string
+  sfc?: boolean
 }
 
 export interface ExtractTextOptions {
   filepath: string
   text: string
   range: Range
+  languageId?: string
 }
 
 export type Node = LocaleNode | LocaleRecord | LocaleTree

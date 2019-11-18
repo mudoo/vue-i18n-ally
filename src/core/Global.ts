@@ -1,10 +1,13 @@
 import { extname } from 'path'
 import { workspace, commands, window, EventEmitter, Event, ExtensionContext, ConfigurationChangeEvent } from 'vscode'
+import { uniq } from 'lodash'
 import { EXT_NAMESPACE } from '../meta'
-import { isVueI18nProject } from '../utils/utils'
+import { getPackageDependencies } from '../utils/utils'
 import { ConfigLocalesGuide } from '../commands/configLocales'
 import { PARSERS } from '../parsers'
 import { Log } from '../utils'
+import { FrameworkDefinition } from '../frameworks/type'
+import { getEnabledFrameworks, getEnabledFrameworksByIds } from '../frameworks/index'
 import { CurrentFile } from './CurrentFile'
 import { LocaleLoader, Config } from '.'
 
@@ -20,6 +23,8 @@ export class Global {
   static context: ExtensionContext
 
   static parsers = PARSERS
+
+  static enabledFrameworks: FrameworkDefinition[] = []
 
   // events
   private static _onDidChangeRootPath: EventEmitter<string> = new EventEmitter()
@@ -43,6 +48,37 @@ export class Global {
     context.subscriptions.push(workspace.onDidCloseTextDocument(e => this.updateRootPath()))
     context.subscriptions.push(workspace.onDidChangeConfiguration(e => this.update(e)))
     await this.updateRootPath()
+  }
+
+  static getKeyMatchReg (languageId?: string) {
+    let regex: RegExp[] = []
+    if (languageId) {
+      regex = regex.concat(
+        this.enabledFrameworks
+          .flatMap(f => f.keyMatchReg[languageId] || []),
+      )
+    }
+    regex = regex.concat(
+      this.enabledFrameworks
+        .flatMap(f => f.keyMatchReg['*'] || []),
+    )
+    return regex
+  }
+
+  static refactorTemplates (keypath: string, languageId?: string) {
+    return uniq(this.enabledFrameworks.flatMap(f => f.refactorTemplates(keypath, languageId)))
+  }
+
+  static isLanguageIdSupported (languageId: string) {
+    return this.enabledFrameworks.flatMap(f => f.languageIds).includes(languageId)
+  }
+
+  static getDocumentSelectors () {
+    return this.enabledFrameworks.flatMap(f => f.languageIds).map(id => ({ scheme: 'file', language: id }))
+  }
+
+  static get rootpath () {
+    return this._rootpath
   }
 
   private static async initLoader (rootpath: string, reload = false) {
@@ -114,20 +150,30 @@ export class Global {
         Log.info('🔁 Reloading loader')
     }
 
-    const i18nProject = isVueI18nProject(this._rootpath)
-    const hasLocalesSet = !!Config.localesPaths.length
-    const shouldEnabled = Config.forceEnabled || (i18nProject && hasLocalesSet)
+    if (!Config.forceEnabled) {
+      const dependencies = getPackageDependencies(this._rootpath)
+      this.enabledFrameworks = getEnabledFrameworks({ dependenciesNames: dependencies })
+    }
+    else {
+      const frameworks = Config.forceEnabled === true ? ['vue-i18n'] : Config.forceEnabled
+      this.enabledFrameworks = getEnabledFrameworksByIds(frameworks)
+    }
+    const isValidProject = this.enabledFrameworks.length > 0
+    const hasLocalesSet = Config.localesPaths.length > 0
+    const shouldEnabled = isValidProject && hasLocalesSet
     this.setEnabled(shouldEnabled)
+
     if (this.enabled) {
+      Log.info(`🐱‍🏍 "${this.enabledFrameworks.map(i => i.display).join(', ')}" framework(s) detected, extension enabled.`)
       await this.initLoader(this._rootpath, reload)
     }
     else {
-      if (!i18nProject)
-        Log.info('⚠ Current workspace is not a vue-i18n project, extension disabled')
+      if (!isValidProject)
+        Log.info('⚠ Current workspace is not a valid project, extension disabled')
       else if (!hasLocalesSet)
         Log.info('⚠ No locales path found, extension disabled')
 
-      if (i18nProject && !hasLocalesSet)
+      if (isValidProject && !hasLocalesSet)
         ConfigLocalesGuide.autoSet()
 
       this.unloadAll()

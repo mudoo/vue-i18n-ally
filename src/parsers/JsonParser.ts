@@ -1,5 +1,6 @@
 import * as SortedStringify from 'json-stable-stringify'
-import { KeyStyle } from '../core'
+// @ts-ignore
+import JsonMap from 'json-source-map'
 import { Parser } from './Parser'
 
 export class JsonParser extends Parser {
@@ -18,27 +19,15 @@ export class JsonParser extends Parser {
       return JSON.stringify(object, null, this.options.indent)
   }
 
-  navigateToKey (text: string, keypath: string, keystyle: KeyStyle) {
-    const keys = keystyle === 'flat'
-      ? [keypath]
-      : keypath.split('.')
+  annotationSupported = true
+  annotationLanguageIds = ['json']
 
-    // build regex to search key
-    let regexString = keys
-      .map((key, i) => `^[ \\t]{${(i + 1) * this.options.indent}}"${key}": ?`)
-      .join('[\\s\\S]*')
-    regexString += '(?:"(.*)"|({))'
-    const regex = new RegExp(regexString, 'gm')
+  parseAST (text: string) {
+    const map = JsonMap.parse(text).pointers
+    const pairs = Object.entries<any>(map)
+      .filter(([k, v]) => k)
+      .map(([k, v]) => ({ start: v.value.pos, end: v.valueEnd.pos, key: k.replace(/\//g, '.').slice(1) }))
 
-    const match = regex.exec(text)
-    if (match && match.length >= 2) {
-      const end = match.index + match[0].length - 1
-      const value = match[1] || match[2]
-      const start = end - value.length
-      return { start, end }
-    }
-    else {
-      return undefined
-    }
+    return pairs
   }
 }
