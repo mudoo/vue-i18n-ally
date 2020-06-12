@@ -3,7 +3,7 @@
     "baseUrl": ".",
     "paths": { "*": ["types/*"] },
     "target": "es2019",
-    "lib": ["es2019"],
+    "lib": [ "ESNext", "ESNext.AsyncIterable", "ESNext.Array"],
     "module": "esnext",
     "outDir": "dist",
     "sourceMap": true,
@@ -15,8 +15,8 @@
     "noUnusedLocals": true,
   },
   "include": [
-    "src/**/*.ts",
-    "package.nls.*.json",
+    "./src/**/*.ts",
+    "./package.nls.*.json",
     "./node_modules/vscode/vscode.d.ts",
     "./node_modules/vscode/lib/*",
   ]

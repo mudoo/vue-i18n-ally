@@ -1,8 +1,30 @@
-export const EXT_NAMESPACE = 'vue-i18n-ally'
-export const EXT_ID = 'antfu.vue-i18n-ally'
-export const EXT_NAME = 'Vue i18n Ally'
+export const EXT_NAMESPACE = 'i18n-ally'
+export const EXT_ID = 'antfu.i18n-ally'
+export const EXT_NAME = 'i18n Ally'
+export const EXT_EDITOR_ID = 'i18n-ally-editor'
+export const EXT_REVIEW_ID = 'i18n-ally-review'
 
-// TODO: make following values dynamic
-export const SUPPORTED_LANG_GLOBS = '**/*.{js,jsx,ts,tsx,mjs,vue}'
-export const MATCH_REG_FILE = '^([\\w-_]*)\\.(json5?|ya?ml|jsx?|tsx?|mjs)$'
-export const MATCH_REG_DIR = '^(.*)\\.(json5?|ya?ml|jsx?|tsx?|mjs)$'
+export const EXT_LEGACY_ID = 'antfu.vue-i18n-ally'
+export const EXT_LEGACY_NAMESPACE = 'vue-i18n-ally'
+
+export const KEY_REG_DEFAULT = '[\\w\\d\\. \\-\\[\\]\\:]*?'
+export const KEY_REG_ALL = '.*?'
+
+export const THROTTLE_DELAY = 800
+export const FILEWATCHER_TIMEOUT = 100
+
+export const linkKeyMatcher = /(?:@(?:\.[a-z]+)?:(?:[\w\-_|.]+|\([\w\-_|.]+\)))/g
+export const linkKeyPrefixMatcher = /^@(?:\.([a-z]+))?:/
+export const bracketsMatcher = /[()]/g
+export const linkedKeyModifiers = {
+  upper: (str: string) => str.toLocaleUpperCase(),
+  lower: (str: string) => str.toLocaleLowerCase(),
+} as Record<string, (str: string) => string>
+
+export const DEFAULT_LOCALE_COUNTRY_MAP = {
+  en: 'us',
+  zh: 'cn',
+  de: 'de',
+  fr: 'fr',
+  ja: 'ja',
+}

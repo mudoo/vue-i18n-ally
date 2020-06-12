@@ -1,64 +1,108 @@
 import { MarkdownString } from 'vscode'
-import { CurrentFile, Global, Commands } from '../core'
-import { decorateLocale, escapeMarkdown, NodeHelper, GlyphChars } from '../utils'
+import { CurrentFile, Global, Commands, LocaleRecord, Config } from '../core'
+import { decorateLocale, escapeMarkdown, NodeHelper } from '../utils'
 import i18n from '../i18n'
 
-function makeMarkdownCommand (command: Commands, args: object): string {
+const EmptyButton = '⠀⠀'
+
+function makeMarkdownCommand(command: Commands, args: object): string {
   return `command:${command}?${encodeURIComponent(JSON.stringify(args))}`
 }
 
-function formatValue (text: string) {
-  return escapeMarkdown(text.replace('\n', ' '))
+function formatValue(text: string) {
+  return escapeMarkdown(text.replace(/[\s]+/g, ' '))
 }
 
-export function createHover (keypath: string, maxLength = 0) {
-  const loader = CurrentFile.loader
-  const locales = loader.getTranslationsByKey(keypath)
+function getAvaliableCommands(record?: LocaleRecord, keyIndex?: number) {
+  const commands = []
 
-  const transTable = Global.visibleLocales
-    .map((locale) => {
-      const commands = []
+  if (record) {
+    const { keypath, locale } = record
+
+    if (Config.reviewEnabled) {
+      commands.push({
+        text: i18n.t('command.open_review'),
+        icon: '💬', // '$(comment-discussion)' // AWAIT_VSCODE_FIX
+        command: makeMarkdownCommand(Commands.open_in_editor, { keypath, locale, keyIndex }),
+      })
+    }
+
+    if (NodeHelper.isTranslatable(record)) {
+      commands.push({
+        text: i18n.t('command.translate_key'),
+        icon: '🌏', // '$(globe)' // AWAIT_VSCODE_FIX
+        command: makeMarkdownCommand(Commands.translate_key, { keypath, locale }),
+      })
+    }
+
+    if (NodeHelper.isEditable(record)) {
+      commands.push({
+        text: i18n.t('command.edit_key'),
+        icon: '✏️', // '$(edit)' // AWAIT_VSCODE_FIX
+        command: Config.preferEditor
+          ? makeMarkdownCommand(Commands.open_in_editor, { keypath, locale, keyIndex })
+          : makeMarkdownCommand(Commands.edit_key, { keypath, locale }),
+      })
+    }
+    else {
+      commands.push(EmptyButton)
+    }
+
+    if (NodeHelper.isOpenable(record)) {
+      commands.push({
+        text: i18n.t('command.open_key'),
+        icon: '↗️', // '$(link-external)' // AWAIT_VSCODE_FIX
+        command: makeMarkdownCommand(Commands.open_key, { keypath, locale }),
+      })
+    }
+    else {
+      commands.push(EmptyButton)
+    }
+  }
+
+  return commands
+}
+
+export function createTable(visibleLocales: string[], records: Record<string, LocaleRecord>, maxLength = 0, keyIndex?: number) {
+  const transTable = visibleLocales
+    .flatMap((locale) => {
+      const record = records[locale]
+      if (!record)
+        return []
+
       const row = {
         locale: decorateLocale(locale),
-        value: formatValue(loader.getValueByKey(keypath, locale, maxLength) || '-'),
+        value: formatValue(CurrentFile.loader.getValueByKey(record.keypath, locale, maxLength) || '-'),
         commands: '',
       }
-      const record = locales[locale]
-      if (record) {
-        if (NodeHelper.isTranslatable(record)) {
-          commands.push({
-            text: i18n.t('command.translate_key'),
-            icon: GlyphChars.Translate,
-            command: makeMarkdownCommand(Commands.translate_key, { keypath, locale }),
-          })
-        }
-        if (NodeHelper.isEditable(record)) {
-          commands.push({
-            text: i18n.t('command.edit_key'),
-            icon: GlyphChars.Pencil,
-            command: makeMarkdownCommand(Commands.edit_key, { keypath, locale }),
-          })
-        }
-        if (NodeHelper.isOpenable(record)) {
-          commands.push({
-            text: i18n.t('command.open_key'),
-            icon: GlyphChars.ArrowUpRight,
-            command: makeMarkdownCommand(Commands.open_key, { keypath, locale }),
-          })
-        }
-      }
-      row.commands = commands.map(c => `[${c.icon}](${c.command} "${c.text}")`).join(' ')
-      return row
+      const commands = getAvaliableCommands(record, keyIndex)
+      row.commands = commands
+        .map(c => typeof c === 'string' ? c : `[${c.icon}](${c.command} "${c.text}")`)
+        .join(' ')
+      return [row]
     })
     .map(item => `| | **${item.locale}** | | ${item.value} | ${item.commands} |`)
     .join('\n')
 
   if (!transTable)
-    return
+    return ''
 
-  const markdown = `| | | | | |\n|---|---:|---|---|---:|\n${transTable}\n| | | | | |`
+  return `| | | | | |\n|---|---:|---|---|---:|\n${transTable}\n| | | | | |`
+}
 
-  const markdownText = new MarkdownString(markdown)
+export function createHover(keypath: string, maxLength = 0, mainLocale?: string, keyIndex?: number) {
+  const loader = CurrentFile.loader
+  const records = loader.getTranslationsByKey(keypath, undefined)
+  if (!Object.keys(records).length)
+    return undefined
+
+  mainLocale = mainLocale || Config.displayLanguage
+
+  const locales = Global.visibleLocales.filter(i => i !== mainLocale)
+  const table1 = createTable([mainLocale, ...locales], records, maxLength, keyIndex)
+  const markdown = `${table1}`
+
+  const markdownText = new MarkdownString(`${markdown}`, true)
   markdownText.isTrusted = true
 
   return markdownText

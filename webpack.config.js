@@ -16,7 +16,7 @@ const config = {
     libraryTarget: 'commonjs2',
     devtoolModuleFilenameTemplate: '../[resource-path]',
   },
-  devtool: 'source-map',
+  // devtool: 'source-map',
   externals: {
     vscode: 'commonjs vscode',
     nodejieba: 'nodejieba',
@@ -26,6 +26,7 @@ const config = {
     less: '_',
     sass: '_',
     stylus: '_',
+    prettier: 'prettier',
     '@microsoft/typescript-etw': '_',
   },
   resolve: {

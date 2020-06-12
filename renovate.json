@@ -11,5 +11,8 @@
       "group:allNonMajor"
     ],
     "commitMessageAction": "Update"
-  }
+  },
+  "ignoreDeps": [
+    "vue-i18n"
+  ]
 }

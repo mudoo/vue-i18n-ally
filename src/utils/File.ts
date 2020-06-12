@@ -1,7 +1,7 @@
-import { normalize } from 'path'
-import { readFileSync, writeFileSync, promises as fsPromises } from 'fs'
+import path, { normalize } from 'path'
 import * as iconv from 'iconv-lite'
 import * as jschardet from 'jschardet'
+import fs from 'fs-extra'
 import { Config } from '../core'
 
 interface FileEncoding {
@@ -24,12 +24,12 @@ const encodingMapping: Record<string, string> = {
 export class File {
   private static _fileEncoding: Record<string, FileEncoding> = {}
 
-  private static __setFileEncoding (filepath: string, encoding: FileEncoding) {
+  private static __setFileEncoding(filepath: string, encoding: FileEncoding) {
     filepath = normalize(filepath)
     this._fileEncoding[filepath] = encoding
   }
 
-  private static __getFileEncoding (filepath: string): FileEncoding {
+  private static __getFileEncoding(filepath: string): FileEncoding {
     filepath = normalize(filepath)
     const info: FileEncoding = this._fileEncoding[filepath] || {
       encoding: '',
@@ -45,35 +45,36 @@ export class File {
     return info
   }
 
-  static async read (filepath: string, encodingConfig: string = Config.encoding): Promise<string> {
-    const raw = await fsPromises.readFile(filepath)
+  static async read(filepath: string, encodingConfig: string = Config.encoding): Promise<string> {
+    const raw = await fs.readFile(filepath)
     const { encoding, bom, content } = File.decode(raw, encodingConfig)
-    console.log('READ', filepath, encoding, bom)
+    // console.log('READ', filepath, encoding, bom)
     this.__setFileEncoding(filepath, { encoding, bom })
     return content
   }
 
-  static readSync (filepath: string, encodingConfig: string = Config.encoding): string {
-    const raw = readFileSync(filepath)
+  static readSync(filepath: string, encodingConfig: string = Config.encoding): string {
+    const raw = fs.readFileSync(filepath)
     const { encoding, bom, content } = File.decode(raw, encodingConfig)
     this.__setFileEncoding(filepath, { encoding, bom })
     return content
   }
 
-  static async write (filepath: string, data: any, opts?: FileEncoding) {
+  static async write(filepath: string, data: any, opts?: FileEncoding) {
     const { encoding, bom } = opts || this.__getFileEncoding(filepath)
-    console.log('WRITE', filepath, encoding, bom)
+    await fs.ensureDir(path.dirname(filepath))
     const buffer = Buffer.from(File.encode(data, encoding, bom))
-    await fsPromises.writeFile(filepath, buffer)
+    await fs.writeFile(filepath, buffer)
   }
 
-  static writeSync (filepath: string, data: any, opts?: FileEncoding) {
+  static writeSync(filepath: string, data: any, opts?: FileEncoding) {
     const { encoding, bom } = opts || this.__getFileEncoding(filepath)
+    fs.ensureDirSync(path.dirname(filepath))
     const buffer = Buffer.from(File.encode(data, encoding, bom))
-    writeFileSync(filepath, buffer)
+    fs.writeFileSync(filepath, buffer)
   }
 
-  static decode (buffer: Buffer, encoding?: string): DecodeData {
+  static decode(buffer: Buffer, encoding?: string): DecodeData {
     if (!encoding || encoding === 'auto') {
       const res = jschardet.detect(buffer, { minimumThreshold: 0 })
       encoding = res.encoding
@@ -100,7 +101,7 @@ export class File {
     }
   }
 
-  static encode (string: string, encoding: string, addBOM = true): Buffer {
+  static encode(string: string, encoding: string, addBOM = true): Buffer {
     return iconv.encode(string, encoding, { addBOM })
   }
 }

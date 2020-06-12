@@ -1,9 +1,9 @@
 import { languages, TextDocument, Position, CancellationToken, Definition, DefinitionLink, Uri, workspace, Location, Range } from 'vscode'
 import { ExtensionModule } from '../modules'
-import { Global, KeyDetector, Config, CurrentFile } from '../core'
+import { Global, KeyDetector, CurrentFile } from '../core'
 
 class DefinitionProvider {
-  async provideDefinition (document: TextDocument, position: Position, token: CancellationToken): Promise<Definition | DefinitionLink[]> {
+  async provideDefinition(document: TextDocument, position: Position, token: CancellationToken): Promise<Definition | DefinitionLink[]> {
     const key = KeyDetector.getKey(document, position)
     if (!key)
       return []
@@ -20,7 +20,7 @@ class DefinitionProvider {
     if (!parser)
       return []
 
-    const range = parser.navigateToKey(localeDocument.getText(), key, Config.keyStyle)
+    const range = parser.navigateToKey(localeDocument.getText(), key, await Global.requestKeyStyle())
 
     const { start = 0, end = 0 } = range || {}
 

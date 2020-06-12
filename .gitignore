@@ -1,9 +1,15 @@
 dist
 out
 node_modules
+web_modules
 .vscode-test/
 *.vsix
+*.zip
 .DS_Store
+.cache
 
-examples/**/.vscode
 examples/**/package-lock.json
+examples/**/i18n-ally-reviews.yml
+package.nls.*
+stats.json
+

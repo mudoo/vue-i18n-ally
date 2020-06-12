@@ -1,143 +1,80 @@
-/* eslint-disable no-dupe-class-members */
 /* eslint-disable @typescript-eslint/interface-name-prefix */
-import { Range } from 'vscode'
-import { getKeyname } from '../utils/utils'
-import { Config } from './Config'
+
+export interface OptionalFeatures {
+  VueSfc?: boolean
+  LinkedMessages?: boolean
+  namespace?: boolean
+}
+
+export interface NodeMeta {
+  VueSfcSectionIndex?: number
+  VueSfcLocale?: string
+  namespace?: string
+}
 
 export interface FileInfo {
   filepath: string
+  dirpath: string
   locale: string
-  nested: boolean
+  mtime: number
   readonly?: boolean
+  namespace?: string
+  matcher?: string
+}
+
+export interface ReviewComment {
+  id: string
+  type?: 'approve' | 'request_change' | 'comment'
+  comment?: string
+  suggestion?: string
+  user?: {
+    name?: string
+    email?: string
+  }
+  time?: string
+  resolved?: boolean
+}
+
+export interface ReviewCommentWithMeta extends ReviewComment {
+  keypath: string
+  locale: string
+}
+
+export interface TranslationCandidate {
+  source: string
+  text: string
+  time: string
+}
+
+export interface TranslationCandidateWithMeta extends TranslationCandidate {
+  keypath: string
+  locale: string
+}
+
+export interface ReviewData {
+  reviews: Record<string, {
+    description?: string
+    locales?: Record<string, {
+      translation_candidate?: TranslationCandidate
+      comments?: ReviewComment[]
+    }>
+  }>
 }
 
 export interface ParsedFile extends FileInfo {
   value: object
 }
 
-export interface NodeOptions{
+export interface NodeOptions {
   locale: string
   readonly?: boolean
   filepath: string
-  sfc?: boolean
+  features?: OptionalFeatures
   meta?: NodeMeta
 }
 
-export interface NodeMeta {
-  sfcSectionIndex?: number
-}
-
-export interface INode {
-  keypath: string
-  keyname?: string
-  filepath?: string
-  shadow?: boolean
-  readonly?: boolean
-  sfc?: boolean
-  meta?: NodeMeta
-}
-
-export interface ILocaleRecord extends INode {
-  value: string
-  locale: string
-}
-
-export interface ILocaleNode extends INode {
-  locales?: Record<string, LocaleRecord>
-}
-
-export interface ILocaleTree extends INode {
-  children?: Record<string | number, LocaleTree | LocaleNode>
-  values?: Record<string, object>
-  isCollection?: boolean
-}
-
-abstract class BaseNode implements INode {
-  readonly keypath: string
-  readonly keyname: string
-  readonly filepath?: string
-  readonly shadow?: boolean
-  readonly readonly?: boolean
-  readonly sfc?: boolean
-  readonly meta?: NodeMeta
-
-  constructor (data: INode) {
-    this.keypath = data.keypath
-    this.keyname = data.keyname || getKeyname(data.keypath)
-    this.filepath = data.filepath
-    this.shadow = data.shadow
-    this.readonly = data.readonly
-    this.sfc = data.sfc
-    this.meta = data.meta
-  }
-}
-
-export class LocaleRecord extends BaseNode implements ILocaleRecord {
-  readonly type: 'record' = 'record'
-
-  readonly locale: string
-  readonly value: string
-
-  constructor (data: ILocaleRecord) {
-    super(data)
-    this.value = data.value
-    this.locale = data.locale
-  }
-}
-
-export class LocaleNode extends BaseNode implements ILocaleNode {
-  readonly type: 'node' = 'node'
-  readonly locales: Record<string, LocaleRecord>
-
-  constructor (data: ILocaleNode) {
-    super(data)
-    this.locales = data.locales || {}
-  }
-
-  public getValue (locale?: string) {
-    locale = locale || Config.displayLanguage
-    return (this.locales[locale] && this.locales[locale].value)
-  }
-
-  get value () {
-    return this.getValue() || ''
-  }
-}
-
-export class LocaleTree extends BaseNode implements ILocaleTree {
-  readonly type: 'tree' = 'tree'
-
-  readonly children: Record<string | number, LocaleTree|LocaleNode>
-  readonly values: Record<string, object>
-  readonly isCollection: boolean
-
-  constructor (data: ILocaleTree) {
-    super(data)
-    this.children = data.children || {}
-    this.values = data.values || {}
-    this.isCollection = data.isCollection || false
-  }
-
-  getChild (key: string) {
-    let child = this.children[key]
-    if (this.isCollection && !child) {
-      const index = parseInt(key)
-      if (!isNaN(index))
-        child = this.children[index]
-    }
-    return child
-  }
-
-  setChild (key: string, value: LocaleTree | LocaleNode) {
-    const index = parseInt(key)
-    if (this.isCollection && !isNaN(index))
-      this.children[index] = value
-    else
-      this.children[key] = value
-  }
-}
-
-export interface FlattenLocaleTree extends Record<string, LocaleNode> {}
+export type DirStructureAuto = 'auto' | 'file' | 'dir'
+export type DirStructure = 'file' | 'dir'
 
 export interface Coverage {
   locale: string
@@ -151,18 +88,66 @@ export interface Coverage {
 }
 
 export interface PendingWrite {
+  textFromPath?: string
   locale: string
   keypath: string
   filepath?: string
   value?: string
-  sfc?: boolean
+  namespace?: string
+  features?: OptionalFeatures
 }
 
-export interface ExtractTextOptions {
+export interface PositionRange {
+  start: number
+  end: number
+}
+
+export interface ParserOptions {
+  indent: number
+  tab: string
+}
+
+export interface KeyInDocument {
+  start: number
+  end: number
+  key: string
+}
+
+export interface KeyOccurrence {
+  keypath: string
   filepath: string
-  text: string
-  range: Range
-  languageId?: string
+  start: number
+  end: number
 }
 
-export type Node = LocaleNode | LocaleRecord | LocaleTree
+export interface KeyUsage {
+  keypath: string
+  occurrences: KeyOccurrence[]
+}
+
+export interface UsageReport {
+  active: KeyUsage[]
+  idle: KeyUsage[]
+  missing: KeyUsage[]
+}
+
+export type RewriteKeySource = 'source' | 'reference' | 'write'
+export type KeyStyle = 'auto' | 'nested' | 'flat'
+
+export interface RewriteKeyContext {
+  locale?: string
+  targetFile?: string
+  namespace?: string
+}
+
+export interface DataProcessContext {
+  locale?: string
+  targetFile?: string
+}
+
+export enum TargetPickingStrategy {
+  None = 'none',
+  MostSimilar = 'most-similar',
+  FilePrevious ='file-previous',
+  GlobalPrevious = 'global-previous',
+}

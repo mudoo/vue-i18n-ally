@@ -7,19 +7,19 @@ import i18n from '../i18n'
 const m: ExtensionModule = (ctx) => {
   return [
     commands.registerCommand(Commands.open_url,
-      async (url: string) => {
+      async(url: string) => {
         // @ts-ignore
         await env.openExternal(Uri.parse(url))
       }),
 
     commands.registerCommand(Commands.support,
-      async () => {
+      async() => {
         const options = [{
           text: i18n.t('prompt.star_on_github'),
           url: Links.github,
         }, {
-          text: i18n.t('prompt.donate_via_paypal'),
-          url: Links.paypal,
+          text: i18n.t('prompt.donate'),
+          url: Links.open_collective,
         }]
         const result = await window.showInformationMessage(
           i18n.t('prompt.support'),

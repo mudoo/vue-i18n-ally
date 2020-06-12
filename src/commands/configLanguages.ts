@@ -1,10 +1,10 @@
 import { commands, window } from 'vscode'
 import { Global, Commands, Config } from '../core'
 import { ExtensionModule } from '../modules'
-import { ProgressView } from '../views/ProgressView'
+import { ProgressBaseItem } from '../views'
 import i18n from '../i18n'
 
-async function pickLocale (locale: any, type: 'displayLanguage' | 'sourceLanguage') {
+async function pickLocale(locale: any, type: 'displayLanguage' | 'sourceLanguage') {
   // from context menu
   if (locale && locale.node && locale.node.locale)
     return locale.node.locale as string
@@ -23,16 +23,16 @@ async function pickLocale (locale: any, type: 'displayLanguage' | 'sourceLanguag
     return result
 }
 
-function handler (type: 'displayLanguage' | 'sourceLanguage') {
-  return async (options?: any) => {
+function handler(type: 'displayLanguage' | 'sourceLanguage') {
+  return async(options?: any) => {
     const locale = await pickLocale(options, type)
     if (locale)
       Config[type] = locale
   }
 }
 
-function visibilityHandler (value?: boolean) {
-  return (item: ProgressView) => {
+function visibilityHandler(value?: boolean) {
+  return (item: ProgressBaseItem) => {
     Config.toggleLocaleVisibility(item.node.locale, value)
   }
 }

@@ -1,76 +1,99 @@
-import { resolve } from 'path'
-import { workspace, Range, Location, TextDocument } from 'vscode'
-import * as fg from 'fast-glob'
-import { SUPPORTED_LANG_GLOBS } from '../meta'
-import { Log, File } from '../utils'
+import { resolve, join } from 'path'
+import fs from 'fs'
+import { workspace, Range, Location, TextDocument, Uri, EventEmitter } from 'vscode'
+// @ts-ignore
+import { glob } from 'glob-gitignore'
+// @ts-ignore
+import parseGitIgnore from 'parse-gitignore'
+import _, { uniq } from 'lodash'
+import { Log } from '../utils'
 import { Global } from './Global'
-import { KeyDetector, Config } from '.'
-
-export interface Occurrence {
-  keypath: string
-  filepath: string
-  start: number
-  end: number
-}
+import { CurrentFile } from './CurrentFile'
+import { UsageReport } from './types'
+import { KeyDetector, Config, KeyOccurrence, KeyUsage } from '.'
 
 export class Analyst {
-  private static _cache: Occurrence[] | null = null
+  private static _cache: KeyOccurrence[] | null = null
+  static readonly _onDidUsageReportChanged = new EventEmitter<UsageReport>()
+  static readonly onDidUsageReportChanged = Analyst._onDidUsageReportChanged.event
 
-  static invalidateCache () {
+  static invalidateCache() {
     this._cache = null
   }
 
-  static invalidateCacheOf (filepath: string) {
+  static invalidateCacheOf(filepath: string) {
     if (this._cache)
       this._cache = this._cache.filter(o => o.filepath !== filepath)
   }
 
-  static watch () {
+  static watch() {
     return workspace.onDidSaveTextDocument(doc => this.updateCache(doc))
   }
 
-  private static async updateCache (doc: TextDocument) {
+  static hasCache() {
+    return !!this._cache
+  }
+
+  static refresh() {
+    if (this.hasCache())
+      this.analyzeUsage(true)
+  }
+
+  private static async updateCache(doc: TextDocument) {
     if (!this._cache)
       return
     if (!Global.isLanguageIdSupported(doc.languageId))
       return
 
     const filepath = doc.uri.fsPath
-    Log.info(`Update cache of ${filepath}`)
+    Log.info(`🔄 Update usage cache of ${filepath}`)
     this.invalidateCacheOf(filepath)
-    const occurrences = await this.getOccurrencesOfText(doc.getText(), filepath)
+    const occurrences = await this.getOccurrencesOfText(doc, filepath)
     this._cache.push(...occurrences)
   }
 
-  private static async getDocumentPaths () {
+  private static async enumerateDocumentPaths() {
     const root = workspace.rootPath
     if (!root)
       return []
 
-    const ignore = [ // TODO: read from gitignore, configs
+    const gitignorePath = join(root, '.gitignore')
+    let gitignore = []
+    try {
+      if (fs.existsSync(gitignorePath))
+        gitignore = parseGitIgnore(await fs.promises.readFile(gitignorePath))
+    }
+    catch (e) {
+      Log.error(e)
+    }
+
+    const ignore = [
       'node_modules',
-      '**/**/node_modules',
       'dist',
-      '**/**/dist',
-      '**/**/coverage',
-      ...Config.localesPaths,
+      ...gitignore,
+      ...Global.localesPaths,
+      ...Config.usageScanningIgnore,
     ]
-    const files = await fg(SUPPORTED_LANG_GLOBS, {
+
+    const files = await glob(Global.getSupportLangGlob(), {
       cwd: root,
       ignore,
-    })
+    }) as string[]
 
     return files.map(f => resolve(root, f))
+      .filter(f => !fs.lstatSync(f).isDirectory())
   }
 
-  private static async getOccurrencesOfFile (filepath: string) {
-    const text = await File.read(filepath)
-    return await this.getOccurrencesOfText(text, filepath)
+  private static async getOccurrencesOfFile(filepath: string) {
+    let doc = workspace.textDocuments.find(doc => doc.uri.fsPath === filepath)
+    if (!doc)
+      doc = await workspace.openTextDocument(Uri.file(filepath))
+    return await this.getOccurrencesOfText(doc, filepath)
   }
 
-  private static async getOccurrencesOfText (text: string, filepath: string) {
-    const keys = KeyDetector.getKeys(text)
-    const occurrences: Occurrence[] = []
+  private static async getOccurrencesOfText(doc: TextDocument, filepath: string) {
+    const keys = KeyDetector.getKeys(doc)
+    const occurrences: KeyOccurrence[] = []
 
     for (const { start, end, key } of keys) {
       occurrences.push({
@@ -84,10 +107,13 @@ export class Analyst {
     return occurrences
   }
 
-  static async getAllOccurrences (targetKey?: string) {
+  static async getAllOccurrences(targetKey?: string, useCache = true) {
+    if (!useCache)
+      this._cache = null
+
     if (!this._cache) {
-      const occurrences: Occurrence[] = []
-      const filepaths = await this.getDocumentPaths()
+      const occurrences: KeyOccurrence[] = []
+      const filepaths = await this.enumerateDocumentPaths()
 
       for (const filepath of filepaths)
         occurrences.push(...await this.getOccurrencesOfFile(filepath))
@@ -100,17 +126,58 @@ export class Analyst {
     return this._cache
   }
 
-  static async getAllOccurrenceLocations (targetKey: string) {
+  static async getAllOccurrenceLocations(targetKey: string) {
     const occurrences = await this.getAllOccurrences(targetKey)
     return await Promise.all(occurrences.map(o => this.getLocationOf(o)))
   }
 
-  static async getLocationOf (occurrence: Occurrence) {
+  static async getLocationOf(occurrence: KeyOccurrence) {
     const document = await workspace.openTextDocument(occurrence.filepath)
     const range = new Range(
       document.positionAt(occurrence.start),
       document.positionAt(occurrence.end),
     )
     return new Location(document.uri, range)
+  }
+
+  static async analyzeUsage(useCache = true): Promise<UsageReport> {
+    const occurrences = await this.getAllOccurrences(undefined, useCache)
+    const usages: KeyUsage[] = _(occurrences)
+      .groupBy('keypath')
+      .entries()
+      .map(([keypath, occurrences]) => ({ keypath, occurrences }))
+      .value()
+
+    // all the keys you have
+    const allKeys = CurrentFile.loader.keys
+    // keys occur in your code
+    const inUseKeys = uniq([...usages.map(i => i.keypath), ...Config.keysInUse])
+
+    // keys in use
+    const activeKeys = inUseKeys.filter(i => allKeys.includes(i))
+    // keys not in use
+    let idleKeys = allKeys.filter(i => !inUseKeys.includes(i))
+    // keys in use, but actually you don't have them
+    const missingKeys = inUseKeys.filter(i => !allKeys.includes(i))
+
+    // remove dervied keys from idle, if the source key is in use
+    const rules = Global.derivedKeyRules
+    idleKeys = idleKeys.filter((key) => {
+      for (const r of rules) {
+        const match = r.exec(key)
+        if (match && match[1] && activeKeys.includes(match[1]))
+          return false
+      }
+      return true
+    })
+
+    const report = {
+      active: usages.filter(i => activeKeys.includes(i.keypath)),
+      missing: usages.filter(i => missingKeys.includes(i.keypath)),
+      idle: idleKeys.map(i => ({ keypath: i, occurrences: [] })),
+    }
+
+    this._onDidUsageReportChanged.fire(report)
+    return report
   }
 }

@@ -1,231 +1,459 @@
 {
-  "name": "vue-i18n-ally",
+  "name": "i18n-ally",
   "displayName": "%extname%",
-  "description": "🌍 Better Vue i18n experiences with VS Code",
-  "version": "0.36.0",
+  "description": "🌍 All in one i18n extension for VS Code",
+  "version": "2.2.4",
   "publisher": "antfu",
   "engines": {
-    "vscode": "^1.29.0"
+    "vscode": "^1.40.0"
   },
   "categories": [
     "Other"
   ],
   "activationEvents": [
     "workspaceContains:package.json",
+    "workspaceContains:pubspec.yaml",
+    "workspaceContains:composer.json",
+    "workspaceContains:Gemfile",
+    "workspaceContains:.vscode/i18n-ally-custom-framework.yml",
+    "workspaceContains:.vscode/i18n-ally-reviews.yml",
+    "onWebviewPanel:i18n-ally-editor",
     "onLanguage:vue",
     "onLanguage:javascript",
-    "onLanguage:typescript"
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact",
+    "onLanguage:json",
+    "onLanguage:yaml",
+    "onLanguage:json5",
+    "onLanguage:dart",
+    "onLanguage:php",
+    "onLanguage:handlebars",
+    "onLanguage:ini",
+    "onLanguage:svelte"
   ],
   "keywords": [
     "vue",
     "vue-i18n",
-    "vue i18n",
+    "translate",
     "i18n",
     "i18next"
   ],
   "icon": "res/logo.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/antfu/vue-i18n-ally"
+    "url": "https://github.com/antfu/i18n-ally"
   },
-  "homepage": "https://github.com/antfu/vue-i18n-ally",
-  "bugs": "https://github.com/antfu/vue-i18n-ally/issues",
+  "homepage": "https://github.com/antfu/i18n-ally",
+  "bugs": "https://github.com/antfu/i18n-ally/issues",
   "main": "./dist/extension",
   "contributes": {
     "commands": [
       {
-        "command": "extension.vue-i18n-ally.config-locales",
+        "command": "i18n-ally.config-locales",
         "title": "%command.config_locales%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.config-locales-auto",
+        "command": "i18n-ally.config-locales-auto",
         "title": "%command.config_locales_auto%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.config-display-language",
+        "command": "i18n-ally.config-display-language",
         "title": "%command.config_display_language%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.config-source-language",
+        "command": "i18n-ally.config-source-language",
         "title": "%command.config_source_language%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.set-display-language",
+        "command": "i18n-ally.set-display-language",
         "title": "%command.set_display_language%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.set-source-language",
+        "command": "i18n-ally.set-source-language",
         "title": "%command.set_source_language%",
         "category": "%extname%"
       },
       {
-        "command": "extension.vue-i18n-ally.copy-key",
+        "command": "i18n-ally.copy-key",
+        "category": "%extname%",
         "title": "%command.copy_key%",
-        "icon": {
-          "light": "./res/light/file.svg",
-          "dark": "./res/dark/file.svg"
-        }
+        "icon": "$(clippy)"
       },
       {
-        "command": "extension.vue-i18n-ally.translate-key",
+        "command": "i18n-ally.translate-key",
+        "category": "%extname%",
         "title": "%command.translate_key%",
-        "icon": {
-          "light": "./res/light/translate.svg",
-          "dark": "./res/dark/translate.svg"
-        }
+        "icon": "$(globe)"
       },
       {
-        "command": "extension.vue-i18n-ally.edit-key",
+        "command": "i18n-ally.edit-key",
+        "category": "%extname%",
         "title": "%command.edit_key%",
-        "icon": {
-          "light": "./res/light/edit.svg",
-          "dark": "./res/dark/edit.svg"
-        }
+        "icon": "$(edit)"
       },
       {
-        "command": "extension.vue-i18n-ally.open-key",
+        "command": "i18n-ally.open-key",
+        "category": "%extname%",
         "title": "%command.open_key%",
-        "icon": {
-          "light": "./res/light/open-file.svg",
-          "dark": "./res/dark/open-file.svg"
-        }
+        "icon": "$(go-to-file)"
       },
       {
-        "command": "extension.vue-i18n-ally.delete-key",
+        "command": "i18n-ally.delete-key",
+        "category": "%extname%",
         "title": "%command.delete_key%"
       },
       {
-        "command": "extension.vue-i18n-ally.rename-key",
+        "command": "i18n-ally.rename-key",
+        "category": "%extname%",
         "title": "%command.rename_key%"
       },
       {
-        "command": "extension.vue-i18n-ally.open-url",
+        "command": "i18n-ally.extract-text",
+        "category": "%extname%",
+        "title": "%refactor.extract_text%"
+      },
+      {
+        "command": "i18n-ally.open-url",
+        "category": "%extname%",
         "title": "%command.open_url%"
       },
       {
-        "command": "extension.vue-i18n-ally.fulfill-keys",
+        "command": "i18n-ally.fulfill-keys",
         "category": "%extname%",
         "title": "%command.fulfill_keys%",
-        "icon": {
-          "light": "./res/light/fulfill.svg",
-          "dark": "./res/dark/fulfill.svg"
-        }
+        "icon": "$(selection)"
       },
       {
-        "command": "extension.vue-i18n-ally.support",
+        "command": "i18n-ally.refresh-usage",
+        "category": "%extname%",
+        "title": "%command.refresh_usage%",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "i18n-ally.support",
+        "category": "%extname%",
         "title": "%feedback.support%"
       },
       {
-        "command": "extension.vue-i18n-ally.locale-visibility-show",
+        "command": "i18n-ally.locale-visibility-show",
+        "category": "%extname%",
         "title": "%command.locale_visibility_show%",
-        "icon": {
-          "light": "./res/light/eye.svg",
-          "dark": "./res/dark/eye.svg"
-        }
+        "icon": "$(eye)"
       },
       {
-        "command": "extension.vue-i18n-ally.locale-visibility-hide",
+        "command": "i18n-ally.locale-visibility-hide",
+        "category": "%extname%",
         "title": "%command.locale_visibility_hide%",
-        "icon": {
-          "light": "./res/light/eye-off.svg",
-          "dark": "./res/dark/eye-off.svg"
-        }
+        "icon": "$(eye-closed)"
       },
       {
-        "command": "extension.vue-i18n-ally.dev.load-sfc",
-        "title": "DEV: Load SFC"
+        "command": "i18n-ally.new-key",
+        "category": "%extname%",
+        "title": "%command.new_key%",
+        "icon": "$(plus)"
+      },
+      {
+        "command": "i18n-ally.duplicate-key",
+        "category": "%extname%",
+        "title": "%command.duplicate_key%"
+      },
+      {
+        "command": "i18n-ally.mark-key-as-in-use",
+        "category": "%extname%",
+        "title": "%command.mark_key_as_in_use%"
+      },
+      {
+        "command": "i18n-ally.open-in-editor",
+        "category": "%extname%",
+        "title": "%command.open_in_editor%",
+        "icon": "$(file-symlink-file)"
+      },
+      {
+        "command": "i18n-ally.open-editor",
+        "category": "%extname%",
+        "title": "%command.open_editor%"
+      },
+      {
+        "command": "i18n-ally.review.comment",
+        "category": "%extname%",
+        "title": "%review.leave_comment%",
+        "enablement": "!commentIsEmpty"
+      },
+      {
+        "command": "i18n-ally.review.approve",
+        "category": "%extname%",
+        "title": "%review.approve%"
+      },
+      {
+        "command": "i18n-ally.review.request-change",
+        "category": "%extname%",
+        "title": "%review.request_change%"
+      },
+      {
+        "command": "i18n-ally.review.edit",
+        "category": "%extname%",
+        "title": "%review.edit%",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "i18n-ally.review.resolve",
+        "title": "%review.resolve%",
+        "icon": "$(issue-closed)"
+      },
+      {
+        "command": "i18n-ally.review.resolve-thread",
+        "category": "%extname%",
+        "title": "%review.resolve_all%",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "i18n-ally.review.apply-translation",
+        "category": "%extname%",
+        "title": "%review.apply_translation_candidate%",
+        "icon": "$(check)"
+      },
+      {
+        "command": "i18n-ally.review.apply-suggestion",
+        "category": "%extname%",
+        "title": "%review.apply_suggestion%"
+      },
+      {
+        "command": "i18n-ally.insert-key",
+        "category": "%extname%",
+        "title": "%command.insert_key%"
       }
     ],
     "menus": {
       "commandPalette": [
         {
-          "command": "extension.vue-i18n-ally.set-display-language",
-          "when": "config.no_exits"
+          "command": "i18n-ally.set-display-language",
+          "when": "false"
         },
         {
-          "command": "extension.vue-i18n-ally.set-source-language",
-          "when": "config.no_exits"
+          "command": "i18n-ally.set-source-language",
+          "when": "false"
         },
         {
-          "command": "extension.vue-i18n-ally.delete-key",
-          "when": "config.no_exits"
+          "command": "i18n-ally.copy-key",
+          "when": "false"
         },
         {
-          "command": "extension.vue-i18n-ally.rename-key",
-          "when": "config.no_exits"
+          "command": "i18n-ally.edit-key",
+          "when": "false"
         },
         {
-          "command": "extension.vue-i18n-ally.open-url",
-          "when": "config.no_exits"
+          "command": "i18n-ally.delete-key",
+          "when": "false"
         },
         {
-          "command": "extension.vue-i18n-ally.fulfill-keys",
-          "when": "vue-i18n-ally-enabled"
+          "command": "i18n-ally.rename-key",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.translate-key",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.open-key",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.open-url",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.locale-visibility-hide",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.locale-visibility-show",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.mark-key-as-in-use",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.comment",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.approve",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.request-change",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.resolve-thread",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.resolve",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.apply-translation",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.review.apply-suggestion",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.open-in-editor",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.edit-key",
+          "when": "false"
+        },
+        {
+          "command": "i18n-ally.duplicate-key",
+          "when": "false"
         }
       ],
       "view/item/context": [
         {
-          "command": "extension.vue-i18n-ally.open-key",
-          "when": "view =~ /locales/ && viewItem =~ /openable/",
+          "command": "i18n-ally.open-in-editor",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /open-in-editor/",
           "group": "inline@1"
         },
         {
-          "command": "extension.vue-i18n-ally.copy-key",
-          "when": "view =~ /locales/ && viewItem =~ /node/",
+          "command": "i18n-ally.open-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /openable/",
           "group": "inline@2"
         },
         {
-          "command": "extension.vue-i18n-ally.translate-key",
-          "when": "view =~ /locales/ && viewItem =~ /translatable/",
+          "command": "i18n-ally.copy-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /node/",
           "group": "inline@3"
         },
         {
-          "command": "extension.vue-i18n-ally.edit-key",
-          "when": "view =~ /locales/ && viewItem =~ /editable/",
+          "command": "i18n-ally.translate-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /translatable/",
           "group": "inline@4"
         },
         {
-          "command": "extension.vue-i18n-ally.fulfill-keys",
-          "when": "view =~ /locales/ && viewItem =~ /fulfillable/",
+          "command": "i18n-ally.edit-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /editable/",
+          "group": "inline@5"
+        },
+        {
+          "command": "i18n-ally.fulfill-keys",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /fulfillable/",
           "group": "inline@3"
         },
         {
-          "command": "extension.vue-i18n-ally.set-display-language",
-          "when": "view =~ /locales-progress/ && viewItem =~ /notdisply/"
+          "command": "i18n-ally.review.apply-translation",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /translation-candidate/",
+          "group": "inline@1"
         },
         {
-          "command": "extension.vue-i18n-ally.set-source-language",
-          "when": "view =~ /locales-progress/ && viewItem =~ /notsource/"
+          "command": "i18n-ally.set-display-language",
+          "when": "view =~ /i18n-ally-locales-progress/ && viewItem =~ /notdisply/"
         },
         {
-          "command": "extension.vue-i18n-ally.delete-key",
-          "when": "view =~ /locales/ && viewItem =~ /node/"
+          "command": "i18n-ally.set-source-language",
+          "when": "view =~ /i18n-ally-locales-progress/ && viewItem =~ /notsource/"
         },
         {
-          "command": "extension.vue-i18n-ally.rename-key",
-          "when": "view =~ /locales/ && viewItem =~ /node/"
+          "command": "i18n-ally.rename-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /node/ && viewItem =~ /writable/",
+          "group": "i18nally@1"
         },
         {
-          "command": "extension.vue-i18n-ally.locale-visibility-show",
-          "when": "view =~ /locales-progress/ && viewItem =~ /show/",
+          "command": "i18n-ally.duplicate-key",
+          "when": "view =~ /i18n-ally-locales-tree/ && viewItem =~ /node/ && viewItem =~ /writable/",
+          "group": "i18nally@2"
+        },
+        {
+          "command": "i18n-ally.delete-key",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /node/ && viewItem =~ /writable/",
+          "group": "i18nally@3"
+        },
+        {
+          "command": "i18n-ally.locale-visibility-show",
+          "when": "view =~ /i18n-ally-locales-progress/ && viewItem =~ /show/",
           "group": "inline@4"
         },
         {
-          "command": "extension.vue-i18n-ally.locale-visibility-hide",
-          "when": "view =~ /locales-progress/ && viewItem =~ /hide/",
+          "command": "i18n-ally.locale-visibility-hide",
+          "when": "view =~ /i18n-ally-locales-progress/ && viewItem =~ /hide/",
           "group": "inline@4"
+        },
+        {
+          "command": "i18n-ally.delete-key",
+          "when": "view =~ /i18n-ally-locales-usage/ && viewItem =~ /usage_idle/",
+          "group": "i18nally@1"
+        },
+        {
+          "command": "i18n-ally.mark-key-as-in-use",
+          "when": "view =~ /i18n-ally-locales/ && viewItem =~ /key_idle/",
+          "group": "i18nally@1"
         }
-      ]
+      ],
+      "view/title": [
+        {
+          "command": "i18n-ally.refresh-usage",
+          "group": "navigation",
+          "when": "view =~ /i18n-ally-locales-usage/"
+        },
+        {
+          "command": "i18n-ally.new-key",
+          "group": "navigation",
+          "when": "view =~ /i18n-ally-locales-tree/"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "i18n-ally.review.resolve-thread",
+          "group": "navigation",
+          "when": "commentController == i18n-ally-review && !commentThreadIsEmpty"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "i18n-ally.review.approve",
+          "group": "inline@1",
+          "when": "commentController == i18n-ally-review"
+        },
+        {
+          "command": "i18n-ally.review.request-change",
+          "group": "inline@2",
+          "when": "commentController == i18n-ally-review"
+        },
+        {
+          "command": "i18n-ally.review.comment",
+          "group": "inline@3",
+          "when": "commentController == i18n-ally-review"
+        }
+      ],
+      "comments/comment/title": [
+        {
+          "command": "i18n-ally.review.edit",
+          "group": "group@1",
+          "when": "commentController == i18n-ally-review && viewItem =~ /self/"
+        },
+        {
+          "command": "i18n-ally.review.resolve",
+          "group": "group@2",
+          "when": "commentController == i18n-ally-review"
+        }
+      ],
+      "comments/comment/context": []
     },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "vue-i18n-ally",
+          "id": "i18n-ally",
           "title": "%extname%",
           "icon": "./res/logo-view-container.svg"
         }
@@ -234,31 +462,36 @@
     "views": {
       "explorer": [
         {
-          "id": "locales-tree-file-explorer",
+          "id": "i18n-ally-locales-file-explorer",
           "name": "%view.i18n_keys%",
-          "when": "vue-i18n-ally-enabled && vue-i18n-ally-supported-file"
+          "when": "i18n-ally-enabled"
         }
       ],
-      "vue-i18n-ally": [
+      "i18n-ally": [
         {
-          "id": "locales-tree-file",
+          "id": "i18n-ally-locales-sidebar-file",
           "name": "%view.current_file%",
-          "when": "vue-i18n-ally-enabled && vue-i18n-ally-supported-file"
+          "when": "i18n-ally-enabled"
         },
         {
-          "id": "locales-progress",
+          "id": "i18n-ally-locales-progress",
           "name": "%view.progress%",
-          "when": "vue-i18n-ally-enabled"
+          "when": "i18n-ally-enabled"
         },
         {
-          "id": "locales-tree",
+          "id": "i18n-ally-locales-tree",
           "name": "%view.tree%",
-          "when": "vue-i18n-ally-enabled"
+          "when": "i18n-ally-enabled"
         },
         {
-          "id": "help-feedback",
+          "id": "i18n-ally-locales-usage",
+          "name": "%view.usage%",
+          "when": "i18n-ally-enabled"
+        },
+        {
+          "id": "i18n-ally-help-feedback",
           "name": "%view.help_feedback%",
-          "when": "vue-i18n-ally-enabled"
+          "when": "i18n-ally-enabled"
         }
       ]
     },
@@ -266,113 +499,431 @@
       "type": "object",
       "title": "%extname%",
       "properties": {
-        "vue-i18n-ally.localesPaths": {
+        "i18n-ally.localesPaths": {
           "type": [
             "string",
             "array"
           ],
-          "default": "",
           "items": {
             "type": "string"
           },
           "description": "%config.locales_paths%"
         },
-        "vue-i18n-ally.encoding": {
+        "i18n-ally.encoding": {
           "type": "string",
-          "default": "auto",
+          "default": "utf-8",
           "description": "%config.encoding%"
         },
-        "vue-i18n-ally.sourceLanguage": {
+        "i18n-ally.sourceLanguage": {
           "type": "string",
-          "default": "en",
           "description": "%config.source_language%"
         },
-        "vue-i18n-ally.displayLanguage": {
+        "i18n-ally.displayLanguage": {
           "type": "string",
-          "default": "en",
           "description": "%config.display_language%"
         },
-        "vue-i18n-ally.ignoredLocales": {
+        "i18n-ally.ignoredLocales": {
           "type": "array",
           "description": "%config.ignored_locales%"
         },
-        "vue-i18n-ally.keystyle": {
+        "i18n-ally.keystyle": {
           "type": "string",
           "enum": [
             "auto",
             "nested",
             "flat"
           ],
-          "default": "auto",
           "description": "%config.keystyle%"
         },
-        "vue-i18n-ally.dirStructure": {
+        "i18n-ally.dirStructure": {
           "type": "string",
           "enum": [
             "auto",
             "file",
             "dir"
           ],
-          "default": "auto",
           "description": "%config.dir_structure%"
         },
-        "vue-i18n-ally.annotations": {
+        "i18n-ally.annotations": {
           "type": "boolean",
           "default": true,
           "description": "%config.annotations%"
         },
-        "vue-i18n-ally.annotationMaxLength": {
+        "i18n-ally.annotationInPlace": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.annotation_in_place%"
+        },
+        "i18n-ally.annotationMaxLength": {
           "type": "number",
           "default": 40,
           "description": "%config.annotation_max_length%"
         },
-        "vue-i18n-ally.annotationDelimiter": {
+        "i18n-ally.annotationDelimiter": {
           "type": "string",
           "default": "·",
           "description": "%config.annotation_delimiter%"
         },
-        "vue-i18n-ally.filenameMatchRegex": {
-          "type": "string",
-          "default": "",
-          "description": "%config.match_regex%"
-        },
-        "vue-i18n-ally.includeSubfolders": {
+        "i18n-ally.includeSubfolders": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%config.include_subfolders%"
         },
-        "vue-i18n-ally.fullReloadOnChanged": {
+        "i18n-ally.fullReloadOnChanged": {
           "type": "boolean",
           "default": false,
           "description": "%config.full_reload_on_changed%"
         },
-        "vue-i18n-ally.forceEnabled": {
-          "type": [
-            "boolean",
-            "array"
-          ],
-          "default": false,
-          "description": "%config.force_enabled%"
+        "i18n-ally.showFlags": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.show_flags%"
         },
-        "vue-i18n-ally.sortKeys": {
+        "i18n-ally.enabledFrameworks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "vue",
+              "react",
+              "vscode",
+              "ngx-translate",
+              "i18next",
+              "i18n-tag",
+              "flutter",
+              "vue-sfc",
+              "ember",
+              "chrome-ext",
+              "ruby-rails",
+              "custom",
+              "laravel",
+              "transloco",
+              "svelte",
+              "globalize",
+              "ui5",
+              "next-translate"
+            ]
+          },
+          "description": "%config.enabled_frameworks%"
+        },
+        "i18n-ally.enabledParsers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "js",
+              "ts",
+              "json",
+              "json5",
+              "yaml",
+              "ini",
+              "po",
+              "php",
+              "properties"
+            ]
+          },
+          "description": "%config.enabled_parsers%"
+        },
+        "i18n-ally.keysInUse": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.keys_in_use%"
+        },
+        "i18n-ally.sortKeys": {
           "type": "boolean",
           "default": false,
           "description": "%config.sort_keys%"
         },
-        "vue-i18n-ally.preferredDelimiter": {
+        "i18n-ally.preferredDelimiter": {
           "type": "string",
           "default": "-",
           "description": "%config.preferred_delimiter%"
         },
-        "vue-i18n-ally.readonly": {
+        "i18n-ally.readonly": {
           "type": "boolean",
           "default": false,
           "description": "%config.readonly%"
         },
-        "vue-i18n-ally.experimental.sfc": {
+        "i18n-ally.keepFulfilled": {
           "type": "boolean",
           "default": false,
-          "description": "%config.sfc%"
+          "description": "%config.keep_fulfill%"
+        },
+        "i18n-ally.localeCountryMap": {
+          "type": "object",
+          "default": {},
+          "description": "%config.locale_country_map%"
+        },
+        "i18n-ally.indent": {
+          "type": "number",
+          "default": 2,
+          "description": "%config.indent%"
+        },
+        "i18n-ally.disablePathParsing": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.disable_path_parsing%"
+        },
+        "i18n-ally.tabStyle": {
+          "type": "string",
+          "default": "space",
+          "enum": [
+            "space",
+            "tab"
+          ],
+          "description": "%config.tab_style%"
+        },
+        "i18n-ally.namespace": {
+          "type": "boolean",
+          "description": "%config.namespace%"
+        },
+        "i18n-ally.pathMatcher": {
+          "type": "string",
+          "description": "%config.path_matcher%"
+        },
+        "i18n-ally.languageTagSystem": {
+          "type": "string",
+          "enum": [
+            "bcp47",
+            "legacy",
+            "none"
+          ],
+          "description": "%config.language_tag_system%"
+        },
+        "i18n-ally.ignoreFiles": {
+          "type": "array",
+          "item": {
+            "type": "string"
+          },
+          "description": "%config.ignore_files%"
+        },
+        "i18n-ally.theme.annotation": {
+          "type": "string",
+          "default": "rgba(153, 153, 153, .8)"
+        },
+        "i18n-ally.theme.annotationMissing": {
+          "type": "string",
+          "default": "rgba(153, 153, 153, .3)"
+        },
+        "i18n-ally.theme.annotationBorder": {
+          "type": "string",
+          "defult": "rgba(153, 153, 153, .2)"
+        },
+        "i18n-ally.theme.annotationMissingBorder": {
+          "type": "string",
+          "defult": "rgba(153, 153, 153, .2)"
+        },
+        "i18n-ally.regex.key": {
+          "type": "string",
+          "description": "%config.regex_key%"
+        },
+        "i18n-ally.regex.usageMatch": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.regex_usage_match%"
+        },
+        "i18n-ally.regex.usageMatchAppend": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.regex_usage_match_append%"
+        },
+        "i18n-ally.refactor.templates": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.refactor_templates%"
+        },
+        "i18n-ally.translate.saveAsCandidates": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.translate_save_as_candidates%"
+        },
+        "i18n-ally.translate.fallbackToKey": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.translate.fallbackToKey%"
+        },
+        "i18n-ally.translate.engines": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "google",
+              "google-cn"
+            ]
+          },
+          "default": [
+            "google"
+          ],
+          "description": "%config.translate.engines%"
+        },
+        "i18n-ally.translate.parallels": {
+          "type": "number",
+          "default": 5,
+          "description": "%config.translate.parallels%"
+        },
+        "i18n-ally.translate.promptSource": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.prompt_translating_source%"
+        },
+        "i18n-ally.translate.overrideExisting": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.translate_override_existing%"
+        },
+        "i18n-ally.usage.scanningIgnore": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "%config.usage.scanning_ignore%"
+        },
+        "i18n-ally.usage.derivedKeyRules": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": null,
+          "description": "%config.derived_keys%"
+        },
+        "i18n-ally.frameworks.ruby-rails.scopeRoot": {
+          "type": "string",
+          "default": "app/views"
+        },
+        "i18n-ally.parsers.typescript.tsNodePath": {
+          "type": "string",
+          "default": "node_modules/ts-node/dist/bin.js"
+        },
+        "i18n-ally.parsers.typescript.compilerOptions": {
+          "type": "object",
+          "default": {}
+        },
+        "i18n-ally.review.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.review_enabled%"
+        },
+        "i18n-ally.review.gutters": {
+          "type": "boolean",
+          "default": true,
+          "description": "%config.review_gutters%"
+        },
+        "i18n-ally.review.user.name": {
+          "type": "string",
+          "description": "%config.review_username%"
+        },
+        "i18n-ally.review.user.email": {
+          "type": "string",
+          "description": "%config.review_email%"
+        },
+        "i18n-ally.review.removeCommentOnResolved": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.review_remove_on_resolved%"
+        },
+        "i18n-ally.editor.preferEditor": {
+          "type": "boolean",
+          "default": false,
+          "description": "%config.editor_prefer_editor%"
+        },
+        "i18n-ally.extract.keygenStrategy": {
+          "type": "string",
+          "default": "slug",
+          "enum": [
+            "slug",
+            "random"
+          ],
+          "description": "%config.keygen_strategy%"
+        },
+        "i18n-ally.extract.keyPrefix": {
+          "type": "string",
+          "default": "",
+          "description": "%config.key_prefix%"
+        },
+        "i18n-ally.extract.targetPickingStrategy": {
+          "type": "string",
+          "default": "none",
+          "enum": [
+            "none",
+            "most-similar",
+            "file-previous",
+            "global-previous"
+          ],
+          "enumDescriptions": [
+            "%config.target_picking_strategy.none%",
+            "%config.target_picking_strategy.most-similar%",
+            "%config.target_picking_strategy.file-previous%",
+            "%config.target_picking_strategy.global-previous%"
+          ],
+          "description": "%config.target_picking_strategy%"
+        },
+        "i18n-ally.derivedKeyRules": {
+          "deprecationMessage": "Depreacted. Use \"i18n-ally.usage.derivedKeyRules\" instead."
+        },
+        "i18n-ally.filenameMatchRegex": {
+          "deprecationMessage": "Deprecated. Use \"i18n-ally.pathMatcher\" instead."
+        },
+        "i18n-ally.fileNamespace": {
+          "deprecationMessage": "Deprecated. Use \"i18n-ally.namespace\" instead."
+        },
+        "i18n-ally.keyMatchRegex": {
+          "deprecationMessage": "Depreacted. Use \"i18n-ally.regex.key\" instead."
+        },
+        "vue-i18n-ally.localesPaths": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.encoding": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.sourceLanguage": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.displayLanguage": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.ignoredLocales": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.keystyle": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.dirStructure": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.annotations": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.annotationMaxLength": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.annotationDelimiter": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.filenameMatchRegex": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.includeSubfolders": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.fullReloadOnChanged": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.sortKeys": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.preferredDelimiter": {
+          "deprecationMessage": "%config.deprecated%"
+        },
+        "vue-i18n-ally.readonly": {
+          "deprecationMessage": "%config.deprecated%"
         }
       }
     }
@@ -410,44 +961,72 @@
     ]
   },
   "scripts": {
-    "release": "standard-version",
-    "publish:minor": "standard-version --release-as minor && git push --follow-tags && vsce publish",
-    "publish:patch": "standard-version --release-as patch && git push --follow-tags && vsce publish",
-    "gh-release": "conventional-github-releaser -p angular",
-    "vscode:prepublish": "webpack --mode development",
-    "compile": "webpack --mode development",
-    "lint": "eslint --ext .ts,.js,.vue --ignore-path .gitignore .",
-    "lint:fix": "eslint --fix --ext .ts,.js,.vue --ignore-path .gitignore .",
-    "watch": "webpack --mode development --watch",
-    "test-compile": "tsc -p ./",
-    "postinstall": "node ./node_modules/vscode/bin/install",
-    "test": "npm run compile && node ./node_modules/vscode/bin/test"
+    "release:minor": "standard-version --release-as minor && npm run publish:gh",
+    "release:patch": "standard-version --release-as patch && npm run publish:gh",
+    "publish:gh": "git push --follow-tags && conventional-github-releaser -p angular",
+    "build": "rimraf dist && npm run i18n:build && npm run main:build && npm run editor:build",
+    "dev": "concurrently -n w: npm:*:dev",
+    "main:build": "webpack --mode development",
+    "main:dev": "webpack --mode development --watch --info-verbosity verbose",
+    "editor:build": "parcel build src/webview/src/index.html --out-dir dist/editor",
+    "editor:dev": "nodemon -w src/webview/src -e js,ts,vue,html --exec \"npm run editor:build\"",
+    "i18n:build": "ts-node -P ./tsconfig.commonjs.json ./scripts/build-i18n.ts",
+    "i18n:dev": "nodemon -w ./locales -e json --exec \"npm run i18n:build\"",
+    "flags:build": "ts-node -P ./tsconfig.commonjs.json ./scripts/build-flags.ts",
+    "lint": "eslint --ext .ts,.js,.vue .",
+    "lint:fix": "npm run lint -- --fix",
+    "test": "jest"
   },
   "devDependencies": {
-    "@antfu/eslint-config-ts": "0.2.8",
-    "@antfu/eslint-config-vue": "0.2.8",
-    "@types/js-yaml": "3.12.1",
+    "@antfu/eslint-config-ts": "0.2.12",
+    "@antfu/eslint-config-vue": "0.2.12",
+    "@types/fs-extra": "^9.0.0",
+    "@types/ini": "^1.3.30",
+    "@types/jest": "^25.0.0",
+    "@types/js-yaml": "3.12.4",
     "@types/json-stable-stringify": "1.0.32",
     "@types/json5": "0.0.30",
-    "@types/lodash": "4.14.148",
-    "@types/mocha": "5.2.7",
-    "@types/node": "12.12.8",
+    "@types/lodash": "4.14.155",
+    "@types/mocha": "7.0.2",
+    "@types/node": "12.12.43",
+    "@types/semver": "^7.1.0",
+    "@types/vscode": "^1.40.0",
     "@types/yaml": "^1.2.0",
-    "@typescript-eslint/eslint-plugin": "2.7.0",
-    "@typescript-eslint/parser": "2.7.0",
+    "@typescript-eslint/eslint-plugin": "3.1.0",
+    "@typescript-eslint/parser": "3.1.0",
+    "axios": "^0.19.2",
+    "blueimp-md5": "^2.13.0",
+    "concurrently": "^5.1.0",
     "conventional-github-releaser": "3.1.3",
-    "eslint": "6.6.0",
-    "rimraf": "3.0.0",
-    "standard-version": "7.0.0",
-    "ts-loader": "6.2.1",
-    "vscode": "1.1.36",
-    "webpack": "4.41.2",
-    "webpack-cli": "3.3.10",
+    "eslint": "7.1.0",
+    "fs-extra": "^9.0.0",
+    "ini": "^1.3.5",
+    "jest": "^26.0.0",
+    "nodemon": "^2.0.3",
+    "parcel-bundler": "^1.12.4",
+    "parcel-plugin-inliner": "^1.0.14",
+    "php-array-parser": "^1.0.1",
+    "pug": "^2.0.4",
+    "rimraf": "3.0.2",
+    "standard-version": "8.0.0",
+    "stylus": "^0.54.7",
+    "ts-jest": "^26.0.0",
+    "ts-loader": "7.0.5",
+    "vue": "^2.6.11",
+    "vue-i18n": "^8.16.0",
+    "vue-material-design-icons": "^4.5.0",
+    "vuex": "^3.1.3",
+    "webpack": "4.43.0",
+    "webpack-cli": "3.3.11",
     "webpack-filter-warnings-plugin": "^1.2.1"
   },
   "dependencies": {
+    "@types/string-similarity": "^3.0.0",
+    "bcp-47-normalize": "^1.0.0",
     "esm": "^3.2.25",
     "fast-glob": "^3.0.0",
+    "glob-gitignore": "^1.0.14",
+    "htmlparser2": "^4.1.0",
     "iconv-lite": "^0.5.0",
     "js-yaml": "^3.13.1",
     "jschardet": "^2.1.1",
@@ -456,12 +1035,16 @@
     "json5": "^2.1.0",
     "limax": "^2.0.0",
     "lodash": "^4.17.11",
+    "nanoid": "^3.1.3",
     "node-html-parser": "^1.1.16",
-    "translation.js": "^0.7.8",
+    "parse-gitignore": "^1.0.1",
+    "po2json": "^1.0.0-alpha",
+    "properties": "^1.2.1",
+    "semver": "^7.3.2",
+    "string-similarity": "^4.0.1",
     "ts-node": "^8.3.0",
-    "typescript": "3.7.2",
-    "vue": "^2.6.10",
-    "vue-i18n-locale-message": "^0.5.0",
+    "typescript": "3.9.3",
+    "vue-i18n-locale-message": "^0.16.0",
     "yaml": "^1.7.2"
   }
 }

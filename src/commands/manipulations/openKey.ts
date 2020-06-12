@@ -1,14 +1,13 @@
 import * as path from 'path'
 import { workspace, window, Selection, TextEditorRevealType, commands } from 'vscode'
-import { LocaleTreeView } from '../../views/LocalesTreeView'
-import { Config, Global } from '../../core'
+import { LocaleTreeItem, ProgressRootItem } from '../../views'
+import { Config, Global, CurrentFile } from '../../core'
 import i18n from '../../i18n'
-import { ProgressRootView } from '../../views/ProgressView'
-import { CurrentFile } from '../../core/CurrentFile'
-import { CommandOptions, getNode, getRecordFromNode } from './common'
+import { Log, NodeHelper } from '../../utils'
+import { CommandOptions, getNodeOrRecord, getRecordFromNode } from './common'
 
-export async function OpenKey (item?: LocaleTreeView | CommandOptions | ProgressRootView) {
-  if (item instanceof ProgressRootView) {
+export async function OpenKey(item?: LocaleTreeItem | CommandOptions | ProgressRootItem) {
+  if (item instanceof ProgressRootItem) {
     const locale = item.locale
     const files = CurrentFile.loader.files.filter(f => f.locale === locale).map(f => f.filepath)
     let filepath: string| undefined
@@ -30,13 +29,21 @@ export async function OpenKey (item?: LocaleTreeView | CommandOptions | Progress
     await window.showTextDocument(document)
   }
   else {
-    const node = getNode(item)
+    const node = getNodeOrRecord(item)
     if (!node)
       return
 
-    let locale = Config.displayLanguage
-    if (item instanceof LocaleTreeView && item.displayLocale)
-      locale = item.displayLocale
+    let locale: string | undefined = Config.displayLanguage
+
+    if (node.type === 'node') {
+      locale = await window.showQuickPick(
+        Global.visibleLocales,
+        { placeHolder: i18n.t('prompt.choice_locale') },
+      )
+    }
+
+    if (!locale)
+      return
 
     const record = await getRecordFromNode(node, locale)
 
@@ -55,7 +62,7 @@ export async function OpenKey (item?: LocaleTreeView | CommandOptions | Progress
       return
 
     const text = editor.document.getText()
-    const range = parser.navigateToKey(text, keypath, Config.keyStyle)
+    const range = parser.navigateToKey(text, NodeHelper.getPathWithoutNamespace(keypath, node), await Global.requestKeyStyle())
 
     if (range) {
       editor.selection = new Selection(
@@ -66,7 +73,7 @@ export async function OpenKey (item?: LocaleTreeView | CommandOptions | Progress
       commands.executeCommand('workbench.action.focusActiveEditorGroup')
     }
     else {
-      window.showWarningMessage(i18n.t('prompt.failed_to_locate_key', keypath))
+      Log.warning(i18n.t('prompt.failed_to_locate_key', keypath), true)
     }
   }
 }

@@ -1,21 +1,53 @@
+import { commands, window, workspace } from 'vscode'
 // @ts-ignore
 import * as limax from 'limax'
-import { commands, window, workspace } from 'vscode'
 import { trim } from 'lodash'
+import { nanoid } from 'nanoid'
 import { ExtensionModule } from '../modules'
-import { ExtractTextOptions, Global, Commands, Config, CurrentFile } from '../core'
+import { Commands, Config, CurrentFile } from '../core'
 import i18n from '../i18n'
+import { ExtractTextOptions } from '../editor/extract'
+import { promptTemplates } from '../utils'
+import { overrideConfirm } from './overrideConfirm'
+import { keypathValidate } from './keypathValidate'
 
 const m: ExtensionModule = () => {
   return commands.registerCommand(Commands.extract_text,
-    async (options: ExtractTextOptions) => {
+    async(options?: ExtractTextOptions) => {
+      if (!options) {
+        // execute from command palette, get from active document
+        const editor = window.activeTextEditor
+        const document = editor?.document
+        if (!editor || !document || editor.selection.start.isEqual(editor.selection.end))
+          return
+        options = {
+          filepath: document.uri.fsPath,
+          text: document.getText(editor.selection),
+          range: editor.selection,
+          languageId: document.languageId,
+        }
+      }
+
       const { filepath, text, range, languageId } = options
-      const default_keypath = limax(text, { separator: Config.preferredDelimiter, tone: false }) as string
+      let default_keypath: string
+      const keygenStrategy = Config.keygenStrategy
+      const keyPrefix = Config.keyPrefix
+
+      if (keygenStrategy === 'random')
+        default_keypath = nanoid()
+      else
+        default_keypath = limax(text, { separator: Config.preferredDelimiter, tone: false }) as string
+
+      if (keyPrefix)
+        default_keypath = keyPrefix + default_keypath
+
+      const locale = Config.sourceLanguage
 
       // prompt for keypath
       const keypath = await window.showInputBox({
         prompt: i18n.t('prompt.enter_i18n_key'),
         value: default_keypath,
+        ignoreFocusOut: true,
       })
 
       if (!keypath) {
@@ -23,43 +55,24 @@ const m: ExtensionModule = () => {
         return
       }
 
-      // keypath existence check
-      const node = Global.loader.getNodeByKey(keypath)
-      let willSkip = false
-      if (node) {
-        const Override = i18n.t('prompt.button_override')
-        const Skip = i18n.t('prompt.button_skip')
-        const Reenter = i18n.t('prompt.button_reenter')
-        const result = await window.showInformationMessage(
-          i18n.t('prompt.key_already_exists'),
-          { modal: true },
-          Override,
-          Skip,
-          Reenter,
-        )
+      if (!keypathValidate(keypath))
+        return window.showWarningMessage(i18n.t('prompt.invalid_keypath'))
 
-        // canceled
-        if (!result) {
-          return
-        }
-        else if (result === Reenter) {
-          commands.executeCommand(Commands.extract_text, options)
-          return
-        }
-        else if (result === Skip) {
-          willSkip = true
-        }
-        // else override
+      const writeKeypath = CurrentFile.loader.rewriteKeys(keypath, 'write', { locale })
+
+      const shouldOverride = await overrideConfirm(writeKeypath, true, true)
+
+      if (shouldOverride === 'retry') {
+        commands.executeCommand(Commands.extract_text, options)
+        return
       }
+      if (shouldOverride === 'canceled')
+        return
 
       const value = trim(text, '\'"')
 
       // prompt for template
-      const replacer = await window.showQuickPick(
-        Global.refactorTemplates(keypath, languageId),
-        {
-          placeHolder: i18n.t('prompt.replace_text_as'),
-        })
+      const replacer = await promptTemplates(keypath, languageId)
 
       if (!replacer) {
         window.showWarningMessage(i18n.t('prompt.extraction_canceled'))
@@ -76,15 +89,16 @@ const m: ExtensionModule = () => {
         editBuilder.replace(range, replacer)
       })
 
-      if (willSkip)
+      if (shouldOverride === 'skip')
         return
 
       // save key
       await CurrentFile.loader.write({
+        textFromPath: filepath,
         filepath: undefined,
-        keypath,
+        keypath: writeKeypath,
         value,
-        locale: Config.sourceLanguage,
+        locale,
       })
     })
 }

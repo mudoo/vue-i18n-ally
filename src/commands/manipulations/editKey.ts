@@ -1,22 +1,18 @@
-import { window } from 'vscode'
-import { LocaleTreeView } from '../../views/LocalesTreeView'
+import { LocaleTreeItem } from '../../views'
 import { Config, CurrentFile } from '../../core'
-import i18n from '../../i18n'
-import { decorateLocale, Log } from '../../utils'
-import { CommandOptions, getNode, getRecordFromNode } from './common'
+import { Log } from '../../utils'
+import { promptEdit } from '../../utils/prompts'
+import { CommandOptions, getNodeOrRecord, getRecordFromNode } from './common'
 
-export async function EditKey (item?: LocaleTreeView | CommandOptions) {
-  let node = getNode(item)
+export async function EditKey(item?: LocaleTreeItem | CommandOptions) {
+  let node = getNodeOrRecord(item)
 
   if (!node)
     return
 
-  if (node.type === 'tree')
-    return
-
   if (node.type === 'node') {
     let locale = Config.displayLanguage
-    if (item instanceof LocaleTreeView && item.displayLocale)
+    if (item instanceof LocaleTreeItem && item.displayLocale)
       locale = item.displayLocale
 
     const record = await getRecordFromNode(node, locale)
@@ -25,11 +21,13 @@ export async function EditKey (item?: LocaleTreeView | CommandOptions) {
     node = record
   }
 
+  let value = node.value
+
+  if (Config.disablePathParsing && node.shadow && !node.value)
+    value = node.keypath
+
   try {
-    const newvalue = await window.showInputBox({
-      value: node.value,
-      prompt: i18n.t('prompt.edit_key_in_locale', node.keypath, decorateLocale(node.locale)),
-    })
+    const newvalue = await promptEdit(node.keypath, node.locale, value)
 
     if (newvalue !== undefined && newvalue !== node.value) {
       await CurrentFile.loader.write({
@@ -37,7 +35,7 @@ export async function EditKey (item?: LocaleTreeView | CommandOptions) {
         keypath: node.keypath,
         filepath: node.filepath,
         locale: node.locale,
-        sfc: node.sfc,
+        features: node.features,
       })
     }
   }

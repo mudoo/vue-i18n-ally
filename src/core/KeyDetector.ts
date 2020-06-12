@@ -1,16 +1,26 @@
-import * as vscode from 'vscode'
-import { File } from '../utils/File'
+import { TextDocument, Position, Range, ExtensionContext, workspace } from 'vscode'
+import { ScopeRange } from '../frameworks/base'
+import { KeyInDocument, CurrentFile } from '../core'
+import { regexFindKeys } from '../utils'
 import { Global } from './Global'
+import { RewriteKeyContext } from './types'
+import { Config } from './Config'
+import { Loader } from './loaders/Loader'
+
+export interface KeyUsages {
+  type: 'code'| 'locale'
+  keys: KeyInDocument[]
+  locale: string
+  namespace?: string
+  ranges: Range[]
+}
 
 export class KeyDetector {
-  static get KeyMatchReg () {
-    return Global.getKeyMatchReg()
-  }
-
-  static getKeyByContent (text: string) {
+  static getKeyByContent(text: string) {
     const keys = new Set<string>()
+    const regs = Global.getUsageMatchRegex()
 
-    for (const reg of this.KeyMatchReg) {
+    for (const reg of regs) {
       (text.match(reg) || [])
         .forEach(key =>
           keys.add(key.replace(reg, '$1')),
@@ -20,37 +30,41 @@ export class KeyDetector {
     return Array.from(keys)
   }
 
-  static getKeyByFile (filePath: string) {
-    const file: string = File.readSync(filePath)
-    return KeyDetector.getKeyByContent(file)
-  }
+  static getKeyRange(document: TextDocument, position: Position, dotEnding?: boolean) {
+    if (Config.disablePathParsing)
+      dotEnding = true
 
-  static getKeyRange (document: vscode.TextDocument, position: vscode.Position) {
-    for (const regex of this.KeyMatchReg) {
+    const regs = Global.getUsageMatchRegex(document.languageId, document.uri.fsPath)
+    for (const regex of regs) {
       const range = document.getWordRangeAtPosition(position, regex)
       if (range) {
         const key = document.getText(range).replace(regex, '$1')
-        return { range, key }
+
+        if (dotEnding) {
+          if (!key || key.endsWith('.'))
+            return { range, key }
+        }
+        else {
+          return { range, key }
+        }
       }
     }
   }
 
-  static getKey (document: vscode.TextDocument, position: vscode.Position) {
-    const keyRange = KeyDetector.getKeyRange(document, position)
-    if (!keyRange)
-      return
-    return keyRange.key
+  static getKey(document: TextDocument, position: Position, dotEnding?: boolean) {
+    const keyRange = KeyDetector.getKeyRange(document, position, dotEnding)
+    return keyRange?.key
   }
 
-  static getKeyAndRange (document: vscode.TextDocument, position: vscode.Position) {
-    const { range, key } = KeyDetector.getKeyRange(document, position) || {}
+  static getKeyAndRange(document: TextDocument, position: Position, dotEnding?: boolean) {
+    const { range, key } = KeyDetector.getKeyRange(document, position, dotEnding) || {}
     if (!range || !key)
       return
     const end = range.end.character - 1
     const start = end - key.length
-    const keyRange = new vscode.Range(
-      new vscode.Position(range.end.line, start),
-      new vscode.Position(range.end.line, end),
+    const keyRange = new Range(
+      new Position(range.end.line, start),
+      new Position(range.end.line, end),
     )
     return {
       range: keyRange,
@@ -58,26 +72,86 @@ export class KeyDetector {
     }
   }
 
-  static getKeys (text: vscode.TextDocument | string) {
-    const keys = []
-    if (typeof text !== 'string')
-      text = text.getText()
-    for (const reg of this.KeyMatchReg) {
-      let match = null
-      // eslint-disable-next-line no-cond-assign
-      while (match = reg.exec(text)) {
-        const index = match.index
-        const matchKey = match[0]
-        const key = matchKey.replace(new RegExp(reg), '$1')
-        const end = index + match[0].length - 1
-        const start = end - match[1].length
-        keys.push({
-          key,
-          start,
-          end,
-        })
+  static init(ctx: ExtensionContext) {
+    workspace.onDidChangeTextDocument(
+      (e) => {
+        delete this._get_keys_cache[e.document.uri.fsPath]
+      },
+      null,
+      ctx.subscriptions,
+    )
+  }
+
+  private static _get_keys_cache: Record<string, KeyInDocument[]> = {}
+
+  static getKeys(document: TextDocument | string, regs?: RegExp[], dotEnding?: boolean, scopes?: ScopeRange[]): KeyInDocument[] {
+    let text = ''
+    let rewriteContext: RewriteKeyContext| undefined
+    let filepath = ''
+    if (typeof document !== 'string') {
+      filepath = document.uri.fsPath
+      if (this._get_keys_cache[filepath])
+        return this._get_keys_cache[filepath]
+
+      regs = regs ?? Global.getUsageMatchRegex(document.languageId, filepath)
+      text = document.getText()
+      rewriteContext = {
+        targetFile: filepath,
       }
+      scopes = scopes || Global.enabledFrameworks.flatMap(f => f.getScopeRange(document) || [])
     }
+    else {
+      regs = Global.getUsageMatchRegex()
+      text = document
+    }
+
+    const keys = regexFindKeys(text, regs, dotEnding, rewriteContext, scopes)
+    if (filepath)
+      this._get_keys_cache[filepath] = keys
     return keys
+  }
+
+  static getUsages(document: TextDocument, loader: Loader = CurrentFile.loader): KeyUsages | undefined {
+    let keys: KeyInDocument[] = []
+    let locale = Config.displayLanguage
+    let namespace: string | undefined
+    let type: 'locale' | 'code' = 'code'
+    const filepath = document.uri.fsPath
+
+    // locale file
+    const localeFile = loader.files.find(f => f.filepath === filepath)
+    if (localeFile) {
+      type = 'locale'
+      const parser = Global.enabledParsers.find(p => p.annotationLanguageIds.includes(document.languageId))
+      if (!parser)
+        return
+
+      if (Global.namespaceEnabled)
+        namespace = loader.getNamespaceFromFilepath(filepath)
+
+      locale = localeFile.locale
+      keys = parser.annotationGetKeys(document)
+        .filter(({ key }) => loader.getTreeNodeByKey(key)?.type === 'node')
+    }
+    // code
+    else if (Global.isLanguageIdSupported(document.languageId)) {
+      keys = KeyDetector.getKeys(document)
+    }
+    else {
+      return
+    }
+
+    const ranges = keys.map(({ start, end }) => new Range(
+      document.positionAt(start),
+      document.positionAt(end),
+    ))
+
+    return {
+      type,
+      keys,
+      ranges,
+      locale,
+      namespace,
+    }
   }
 }

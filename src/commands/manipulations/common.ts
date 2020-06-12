@@ -1,25 +1,49 @@
 import { window } from 'vscode'
-import { LocaleTreeView } from '../../views/LocalesTreeView'
-import { CurrentFile, Global, Node } from '../../core'
+import { LocaleTreeItem, ProgressSubmenuItem } from '../../views'
+import { CurrentFile, Global, Node, LocaleNode, LocaleRecord } from '../../core'
 import i18n from '../../i18n'
 
 export interface CommandOptions {
   keypath: string
-  locale: string
+  locale?: string
   from?: string
+  locales?: string[]
+  keyIndex?: number
 }
 
-export function getNode (item?: LocaleTreeView | CommandOptions) {
+export function getNodeOrRecord(item?: LocaleTreeItem | CommandOptions): LocaleNode | LocaleRecord | undefined {
   if (!item)
     return
 
-  if (item instanceof LocaleTreeView)
-    return item.node
+  if (item instanceof LocaleTreeItem) {
+    return item.node.type !== 'tree'
+      ? item.node
+      : undefined
+  }
 
-  return CurrentFile.loader.getRecordByKey(item.keypath, item.locale, true)
+  if (item.locale)
+    return CurrentFile.loader.getRecordByKey(item.keypath, item.locale, true)
+  else
+    return CurrentFile.loader.getNodeByKey(item.keypath, true)
 }
 
-export async function getRecordFromNode (node: Node, defaultLocale?: string) {
+export function getNode(item?: LocaleTreeItem | CommandOptions | ProgressSubmenuItem) {
+  if (!item)
+    return
+
+  if (item instanceof ProgressSubmenuItem)
+    return
+
+  if (item instanceof LocaleTreeItem) {
+    if (item.node.type === 'node')
+      return item.node
+    return
+  }
+
+  return CurrentFile.loader.getNodeByKey(item.keypath, true)
+}
+
+export async function getRecordFromNode(node: Node, defaultLocale?: string) {
   if (node.type === 'tree')
     return
 

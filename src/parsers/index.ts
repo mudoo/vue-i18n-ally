@@ -1,11 +1,26 @@
-import { Json5Parser } from './Json5Parser'
-import { JsonParser } from './JsonParser'
-import { YamlParser } from './YamlParser'
-import { JavascriptParser } from './JavascriptParser'
+import { Json5Parser } from './json5'
+import { JsonParser } from './json'
+import { YamlParser } from './yaml'
+import { EcmascriptParser } from './ecmascript'
+import { IniParser } from './ini'
+import { PoParser } from './po'
+import { PhpParser } from './php'
+import { Properties } from './properties'
+import { Parser } from './base'
 
-export const PARSERS = [
+export const DefaultEnabledParsers = ['json', 'yaml', 'json5']
+
+export const AvaliablePasers: Parser[] = [
+  // enabled parsers
   new JsonParser(),
   new YamlParser(),
-  new JavascriptParser(),
   new Json5Parser(),
+
+  // avaliable parsers
+  new EcmascriptParser('js'),
+  new EcmascriptParser('ts'),
+  new IniParser(),
+  new PoParser(),
+  new PhpParser(),
+  new Properties(),
 ]

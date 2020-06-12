@@ -5,12 +5,20 @@ node_modules
 out/**
 dist/test/**
 dist/**/*.map
+dist/editor/*.js
+dist/editor/*.css
 src/**
 screenshots/**
 examples/**
 test/**
+docs/**
+.cache/**
+locales/**
+scripts/**
 
+stats.json
 .gitignore
+.gitattributes
 .editorconfig
 .eslintrc.js
 .eslintignore
@@ -19,6 +27,9 @@ tsconfig.json
 tslint.json
 webpack.config.js
 renovate.json
+jest.config.js
+*.zip
+*.vsix
 
 # Externals
 # jieba
@@ -26,10 +37,6 @@ renovate.json
 !node_modules/nodejieba/dict/**
 !node_modules/nodejieba/*.js
 !node_modules/nodejieba/*.json
-
-# esm
-!node_modules/esm/**/*.js
-!node_modules/esm/**/*.json
 
 # ts-node
 !node_modules/ts-node/**/*.js
@@ -50,10 +57,15 @@ renovate.json
 !node_modules/typescript/lib/**
 !node_modules/typescript/*.js
 !node_modules/typescript/*.json
+!node_modules/diff/**/*.js
+!node_modules/diff/**/*.json
 
 # vue-i18n-locale-messages
 !node_modules/consolidate/**/*.js
 !node_modules/consolidate/*.json
 !node_modules/bluebird/**/*.js
 !node_modules/bluebird/*.json
+
+# vue
+!node_modules/vue/dist/vue.min.js
 

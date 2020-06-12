@@ -1,42 +1,73 @@
-import * as vscode from 'vscode'
-import { Global, KeyDetector, Loader, CurrentFile } from '../core'
+import { CompletionItemProvider, TextDocument, Position, CompletionItem, CompletionItemKind, ExtensionContext, languages } from 'vscode'
+import { Global, KeyDetector, Loader, CurrentFile, LocaleTree, LocaleNode } from '../core'
 import { ExtensionModule } from '../modules'
 
-class CompletionProvider implements vscode.CompletionItemProvider {
-  public provideCompletionItems (
-    document: vscode.TextDocument,
-    position: vscode.Position,
+class CompletionProvider implements CompletionItemProvider {
+  public provideCompletionItems(
+    document: TextDocument,
+    position: Position,
   ) {
     if (!Global.enabled)
       return
 
     const loader: Loader = CurrentFile.loader
-    let key = KeyDetector.getKey(document, position)
-    if (!key || !/\.$/.test(key))
+    const key = KeyDetector.getKey(document, position, true)
+
+    if (key === undefined)
       return
 
-    key = key.slice(0, -1)
-    const trans = loader.getTreeNodeByKey(key)
+    if (!key) {
+      return Object
+        .values(CurrentFile.loader.keys)
+        .map((key) => {
+          const item = new CompletionItem(key, CompletionItemKind.Text)
+          item.detail = loader.getValueByKey(key)
+          return item
+        })
+    }
 
-    if (!trans || trans.type !== 'tree')
+    let parent = ''
+
+    const parts = key.split('.')
+
+    if (parts.length > 1)
+      parent = parts.slice(0, -1).join('.')
+
+    let node: LocaleTree | LocaleNode | undefined
+
+    if (!key)
+      node = loader.root
+
+    if (!node)
+      node = loader.getTreeNodeByKey(key)
+
+    if (!node && parent)
+      node = loader.getTreeNodeByKey(parent)
+
+    if (!node || node.type !== 'tree')
       return
 
-    return Object.values(trans.children).map((node) => {
-      return new vscode.CompletionItem(
-        node.keyname,
-        node.type === 'tree'
-          ? vscode.CompletionItemKind.Field
-          : vscode.CompletionItemKind.Text,
-      )
-    })
+    return Object
+      .values(node.children)
+      .map((child) => {
+        const item = new CompletionItem(
+          child.keyname,
+          child.type === 'tree'
+            ? CompletionItemKind.Field
+            : CompletionItemKind.Text,
+        )
+        item.commitCharacters = ['.']
+        item.detail = child.type === 'node' ? child.getValue() : undefined
+        return item
+      })
   }
 }
 
-const m: ExtensionModule = (ctx: vscode.ExtensionContext) => {
-  return vscode.languages.registerCompletionItemProvider(
+const m: ExtensionModule = (ctx: ExtensionContext) => {
+  return languages.registerCompletionItemProvider(
     Global.getDocumentSelectors(),
     new CompletionProvider(),
-    '.',
+    '.', '\'', '"', '`', ':',
   )
 }
 

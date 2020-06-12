@@ -1,140 +1,338 @@
-import { promises as fs, existsSync } from 'fs'
 import * as path from 'path'
-import * as _ from 'lodash'
-import * as fg from 'fast-glob'
 import { workspace, window, WorkspaceEdit, RelativePattern } from 'vscode'
-import { replaceLocalePath, normalizeLocale, Log, applyPendingToObject } from '../../utils'
+import * as fg from 'fast-glob'
+import _, { uniq, throttle, set } from 'lodash'
+import fs from 'fs-extra'
+import { findBestMatch } from 'string-similarity'
+import { ReplaceLocale } from '../../utils/PathMatcher'
+import { FILEWATCHER_TIMEOUT } from '../../meta'
+import { Log, applyPendingToObject, unflatten, NodeHelper } from '../../utils'
 import i18n from '../../i18n'
-import { LocaleTree, ParsedFile, LocaleRecord, PendingWrite } from '../types'
+import { ParsedFile, PendingWrite, DirStructure, TargetPickingStrategy } from '../types'
+import { LocaleTree } from '../Nodes'
 import { AllyError, ErrorType } from '../Errors'
+import { hasCache, getCache, setCache } from '../../utils/cache'
 import { Loader } from './Loader'
 import { Analyst, Global, Config } from '..'
 
+const THROTTLE_DELAY = 1500
+
 export class LocaleLoader extends Loader {
   private _files: Record<string, ParsedFile> = {}
+  private _path_matchers: {regex: RegExp; matcher: string}[] = []
+  private _dir_structure: DirStructure = 'file'
+  private _locale_dirs: string[] = []
 
-  constructor (public readonly rootpath: string) {
+  constructor(public readonly rootpath: string) {
     super(`[LOCALE]${rootpath}`)
   }
 
-  async init () {
-    Log.info(`🚀 Initializing loader "${this.rootpath}"`)
-    await this.loadAll()
+  async init() {
+    if (await this.findLocaleDirs()) {
+      Log.info(`🚀 Initializing loader "${this.rootpath}"`)
+      this._dir_structure = await this.guessDirStructure()
+      Log.info(`📂 Directory structure: ${this._dir_structure}`)
+
+      if (Config._pathMatcher)
+        Log.info(`🗃 Custom Path Matcher: ${Config._pathMatcher}`)
+
+      this._path_matchers = Global.getPathMatchers(this._dir_structure)
+      Log.info(`🗃 Path Matcher Regex: ${this._path_matchers.map(i => i.regex)}`)
+      await this.loadAll()
+    }
     this.update()
-    if (Config.sfc)
-      window.showInformationMessage('Experimental SFC support enabled.')
+    Log.divider()
   }
 
-  get localesPaths () {
-    return Config.localesPaths
+  get localesPaths() {
+    return Global.localesPaths
   }
 
-  get files () {
+  get files() {
     return Object.values(this._files)
   }
 
-  get locales () {
+  get locales() {
+    // sort by source, display and others by alpha
     const source = Config.sourceLanguage
-    return _(this._files)
+    const display = Config.displayLanguage
+    const allLocales = _(this._files)
       .values()
       .map(f => f.locale)
       .uniq()
-      .sort((x, y) => x === source
-        ? -1
-        : y === source
-          ? 1
-          : 0)
+      .sort()
       .value()
+
+    const locales = allLocales
+      .filter(i => i !== source && i !== display)
+
+    if (allLocales.includes(display))
+      locales.unshift(display)
+
+    if (display !== source && allLocales.includes(source))
+      locales.unshift(source)
+
+    return locales
   }
 
-  getDisplayingTranslateByKey (key: string): LocaleRecord | undefined {
-    const node = this.getNodeByKey(key)
-    return node && node.locales[Config.displayLanguage]
-  }
+  // #region throttled functions
+  private throttledFullReload = throttle(async() => {
+    Log.info('🔄 Perfroming a full reload', 2)
+    await this.loadAll(false)
+    this.update()
+  }, THROTTLE_DELAY, { leading: true })
 
-  private getFilepathsOfLocale (locale: string) {
+  private throttledUpdate = throttle(() => {
+    this.update()
+  }, THROTTLE_DELAY, { leading: true })
+
+  private throttledLoadFileWaitingList: [string, string][] = []
+
+  private throttledLoadFileExecutor = throttle(async() => {
+    const list = this.throttledLoadFileWaitingList
+    this.throttledLoadFileWaitingList = []
+    if (list.length) {
+      let changed = false
+      for (const [d, r] of list)
+        changed = await this.loadFile(d, r) || changed
+
+      if (changed)
+        this.update()
+    }
+  }, THROTTLE_DELAY, { leading: true })
+
+  private throttledLoadFile = (d: string, r: string) => {
+    if (!this.throttledLoadFileWaitingList.find(([a, b]) => a === d && b === r))
+      this.throttledLoadFileWaitingList.push([d, r])
+    this.throttledLoadFileExecutor()
+  }
+  // #endregion
+
+  private getFilepathsOfLocale(locale: string) {
+    // TODO: maybe shadow options
     return Object.values(this._files)
       .filter(f => f.locale === locale)
       .map(f => f.filepath)
   }
 
-  async requestMissingFilepath (locale: string, keypath: string) {
+  async guessDirStructure(): Promise<DirStructure> {
+    const POSITIVE_RATE = 0.6
+
+    const config = Global.dirStructure
+    if (config !== 'auto')
+      return config
+
+    const dir = this._locale_dirs[0]
+
+    const dirnames = await fg('*', {
+      onlyDirectories: true,
+      cwd: dir,
+      deep: 1,
+      ignore: Config.ignoreFiles,
+    })
+
+    const total = dirnames.length
+    if (total === 0)
+      return 'file'
+
+    const positives = dirnames
+      .map(d => Config.tagSystem.lookup(d))
+
+    const positive = positives
+      .filter(d => d)
+      .length
+
+    // if there are some dirs are named as locale code, guess it's dir mode
+    return (positive / total) >= POSITIVE_RATE
+      ? 'dir'
+      : 'file'
+  }
+
+  async requestMissingFilepath(pending: PendingWrite) {
+    const { locale, keypath } = pending
+
+    // try to match namespaces
+    if (Config.namespace) {
+      const namespace = pending.namespace || this.getNodeByKey(keypath)?.meta?.namespace
+
+      const filesSameLocale = this.files.find(f => f.namespace === namespace && f.locale === locale)
+
+      if (filesSameLocale)
+        return filesSameLocale.filepath
+
+      const fileSource = this.files.find(f => f.namespace === namespace && f.locale === Config.sourceLanguage)
+      if (fileSource && fileSource.matcher) {
+        const relative = path.relative(fileSource.dirpath, fileSource.filepath)
+        const newFilepath = ReplaceLocale(relative, fileSource.matcher, locale, Global.enabledParserExts)
+        return path.join(fileSource.dirpath, newFilepath)
+      }
+    }
+
     const paths = this.getFilepathsOfLocale(locale)
+
     if (paths.length === 1)
       return paths[0]
+
     if (paths.length === 0) {
       return await window.showInputBox({
-        prompt: i18n.t('prompt.enter_file_path_to_store_key'),
+        prompt: i18n.t('prompt.enter_file_path_to_store_key', keypath),
         placeHolder: `path/to/${locale}.json`,
+        ignoreFocusOut: true,
       })
     }
+    if (Config.targetPickingStrategy === TargetPickingStrategy.MostSimilar && pending.textFromPath)
+      return this.findBestMatchFile(pending.textFromPath, paths)
+
+    if (Config.targetPickingStrategy === TargetPickingStrategy.FilePrevious && pending.textFromPath)
+      return this.handleExtractToFilePrevious(pending.textFromPath, paths, keypath)
+
+    if (Config.targetPickingStrategy === TargetPickingStrategy.GlobalPrevious)
+      return this.handleExtractToGlobalPrevious(paths, keypath)
+
     return await window.showQuickPick(paths, {
-      placeHolder: i18n.t('prompt.select_file_to_store_key'),
+      placeHolder: i18n.t('prompt.select_file_to_store_key', keypath),
       ignoreFocusOut: true,
     })
   }
 
-  getShadowFilePath (keypath: string, locale: string) {
-    const paths = this.getFilepathsOfLocale(locale)
-    if (paths.length === 1)
-      return paths[0]
+  /**
+   * Extract text to current file's previous selected locale file
+   * @param fromPath: path of current extracting file
+   * @param paths: paths of locale files
+   * @param keypath
+   */
+  async handleExtractToFilePrevious(fromPath: string, paths: any, keypath: string): Promise<string | void> {
+    const cacheKey = 'perFilePickingTargets'
+    const pickingTargets: any = hasCache(cacheKey) ? getCache(cacheKey) : setCache(cacheKey, {})
+    const cachedPath = pickingTargets[fromPath]
 
-    const node = this.getNodeByKey(keypath)
-    if (node) {
-      const sourceRecord = node.locales[Config.sourceLanguage] || Object.values(node.locales)[0]
-      if (sourceRecord && sourceRecord.filepath)
-        return replaceLocalePath(sourceRecord.filepath, locale)
-    }
-    return undefined
+    if (cachedPath) return cachedPath
+
+    const newPath = await window.showQuickPick(paths, {
+      placeHolder: i18n.t('prompt.select_file_to_store_key', keypath),
+      ignoreFocusOut: true,
+    })
+    pickingTargets[fromPath] = newPath
+    setCache(cacheKey, pickingTargets)
+
+    return newPath
   }
 
-  private async writeToSingleFile (pending: PendingWrite) {
-    let filepath = pending.filepath
-    if (!filepath)
-      filepath = await this.requestMissingFilepath(pending.locale, pending.keypath)
+  /**
+   * Extract text to previous selected locale file (includes selection made in other files)
+   * @param paths: paths of locale files
+   * @param keypath
+   */
+  async handleExtractToGlobalPrevious(paths: any, keypath: string): Promise<string | void> {
+    const cacheKey = 'globalPickingTargets'
+    const pickingTarget: any = getCache(cacheKey)
 
-    if (!filepath)
-      throw new AllyError(ErrorType.filepath_not_specified)
+    if (pickingTarget) return pickingTarget
 
-    Log.info(`💾 Writing ${filepath}`)
-    const ext = path.extname(filepath)
-    const parser = Global.getMatchedParser(ext)
-    if (!parser)
-      throw new AllyError(ErrorType.unsupported_file_type, ext)
+    const newPath = await window.showQuickPick(paths, {
+      placeHolder: i18n.t('prompt.select_file_to_store_key', keypath),
+      ignoreFocusOut: true,
+    })
+    setCache(cacheKey, newPath)
 
-    let original: any = {}
-    if (existsSync(filepath))
-      original = await parser.load(filepath)
-
-    original = await applyPendingToObject(original, pending)
-
-    await parser.save(filepath, original, Config.sortKeys)
+    return newPath
   }
 
-  private _ignoreChanges = false
+  findBestMatchFile(fromPath: string, paths: string[]): string {
+    return findBestMatch(fromPath, paths).bestMatch.target
+  }
 
-  async write (pendings: PendingWrite|PendingWrite[]) {
-    this._ignoreChanges = true
+  async write(pendings: PendingWrite|PendingWrite[]) {
     if (!Array.isArray(pendings))
       pendings = [pendings]
+
     pendings = pendings.filter(i => i)
+
+    const distributed: Record<string, PendingWrite[]> = {}
+
+    // distribute pendings writes by files
+    for (const pending of pendings) {
+      const filepath = pending.filepath || await this.requestMissingFilepath(pending)
+      if (!filepath) {
+        Log.info(`💥 Unable to find path for writing ${JSON.stringify(pending)}`)
+        continue
+      }
+
+      if (Config.namespace)
+        pending.namespace = pending.namespace || this._files[filepath]?.namespace
+
+      if (!distributed[filepath])
+        distributed[filepath] = []
+      distributed[filepath].push(pending)
+    }
+
     try {
-      for (const pending of pendings)
-        await this.writeToSingleFile(pending)
+      for (const [filepath, pendings] of Object.entries(distributed)) {
+        const ext = path.extname(filepath)
+        const parser = Global.getMatchedParser(ext)
+        if (!parser)
+          throw new AllyError(ErrorType.unsupported_file_type, undefined, ext)
+        if (parser.readonly)
+          throw new AllyError(ErrorType.write_in_readonly_mode)
+
+        Log.info(`💾 Writing ${filepath}`)
+
+        let original: any = {}
+        if (fs.existsSync(filepath)) {
+          original = await parser.load(filepath)
+          original = this.preprocessData(original, {
+            locale: pendings[0].locale,
+            targetFile: filepath,
+          })
+        }
+
+        let modified = original
+        for (const pending of pendings) {
+          let keypath = pending.keypath
+
+          if (Global.namespaceEnabled) {
+            const node = this.getNodeByKey(keypath)
+            keypath = NodeHelper.getPathWithoutNamespace(keypath, node, pending.namespace)
+          }
+
+          modified = applyPendingToObject(
+            modified,
+            keypath,
+            pending.value,
+            await Global.requestKeyStyle(),
+          )
+        }
+
+        const locale = pendings[0].locale
+
+        const processingContext = { locale, targetFile: filepath }
+        const processed = this.deprocessData(modified, processingContext)
+
+        await parser.save(filepath, processed, Config.sortKeys)
+
+        if (this._files[filepath]) {
+          this._files[filepath].value = modified
+          this._files[filepath].mtime = this.getMtime(filepath)
+        }
+      }
     }
     catch (e) {
-      this._ignoreChanges = false
+      this.update()
       throw e
     }
-    this._ignoreChanges = false
+
+    this.update()
   }
 
-  canHandleWrites (pending: PendingWrite) {
-    return !pending.sfc
+  canHandleWrites(pending: PendingWrite) {
+    return !pending.features?.VueSfc
   }
 
-  async renameKey (oldkey: string, newkey: string) {
+  async renameKey(oldkey: string, newkey: string) {
     const edit = new WorkspaceEdit()
+
+    oldkey = this.rewriteKeys(oldkey, 'source')
+    newkey = this.rewriteKeys(newkey, 'reference')
 
     const locations = await Analyst.getAllOccurrenceLocations(oldkey)
 
@@ -146,7 +344,7 @@ export class LocaleLoader extends Loader {
     return edit
   }
 
-  async renameKeyInLocales (oldkey: string, newkey: string) {
+  async renameKeyInLocales(oldkey: string, newkey: string) {
     const writes = _(this._files)
       .entries()
       .flatMap(([filepath, file]) => {
@@ -173,33 +371,40 @@ export class LocaleLoader extends Loader {
     await this.write(writes)
   }
 
-  private getFileInfo (filepath: string, dirStructure: 'dir'|'file') {
-    const regexp = new RegExp(Config.getMatchRegex(dirStructure), 'ig')
-    const filename = path.basename(filepath)
-    const ext = path.extname(filepath)
-    const match = regexp.exec(filename)
-    // Log.info(`\nMatching filename: ${filename} ${JSON.stringify(match)}`)
+  getNamespaceFromFilepath(filepath: string) {
+    const file = this._files[filepath]
+
+    if (file)
+      return file.namespace
+  }
+
+  private getFileInfo(dirpath: string, relativePath: string) {
+    const fullpath = path.resolve(dirpath, relativePath)
+    const ext = path.extname(relativePath)
+
+    let match: RegExpExecArray | null = null
+    let matcher: string | undefined
+
+    for (const r of this._path_matchers) {
+      match = r.regex.exec(relativePath)
+      if (match && match.length > 0) {
+        matcher = r.matcher
+        break
+      }
+    }
+
     if (!match || match.length < 1)
       return
 
-    const info = path.parse(filepath)
+    let namespace = match.groups?.namespace
+    if (namespace)
+      namespace = namespace.replace(/\//g, '.')
 
-    let locale = ''
-    let nested = false
-
-    if (dirStructure === 'file') {
-      if (!match || match.length < 2)
-        return
-      if (!match[1]) // filename with no locales code, should be treat as source locale
-        locale = Config.sourceLanguage
-      else
-        locale = normalizeLocale(match[1], '')
-    }
-
-    if (dirStructure === 'dir') {
-      nested = true
-      locale = normalizeLocale(path.basename(info.dir), '')
-    }
+    let locale = match.groups?.locale
+    if (locale)
+      locale = Config.normalizeLocale(locale, '')
+    else
+      locale = Config.sourceLanguage
 
     if (!locale)
       return
@@ -208,168 +413,224 @@ export class LocaleLoader extends Loader {
 
     return {
       locale,
-      nested,
       parser,
       ext,
+      namespace,
+      fullpath,
+      matcher,
     }
   }
 
-  private async loadFile (filepath: string, dirStructure: 'dir'|'file' = 'file', parentPath?: string) {
+  private async loadFile(dirpath: string, relativePath: string) {
     try {
-      const result = this.getFileInfo(filepath, dirStructure)
+      const result = this.getFileInfo(dirpath, relativePath)
       if (!result)
         return
-      const { locale, nested, parser } = result
-      Log.info(`📑 Loading (${locale}) ${path.relative(parentPath || this.rootpath, filepath)}`, parentPath ? 1 : 0)
+      const { locale, parser, namespace, fullpath: filepath, matcher } = result
       if (!parser)
-        throw new AllyError(ErrorType.unsupported_file_type)
+        return
+      if (!locale)
+        return
 
-      const value = await parser.load(filepath)
+      const mtime = this.getMtime(filepath)
+
+      Log.info(`📑 Loading (${locale}) ${relativePath} [${mtime}]`, 1)
+
+      let data = await parser.load(filepath)
+
+      data = this.preprocessData(data, { locale, targetFile: filepath })
+
+      const value = Config.disablePathParsing
+        ? data
+        : unflatten(data)
+
       this._files[filepath] = {
         filepath,
+        dirpath,
         locale,
         value,
-        nested,
-        readonly: parser.readonly,
+        mtime,
+        namespace,
+        readonly: parser.readonly || Config.readonly,
+        matcher,
       }
+
+      return true
     }
     catch (e) {
-      this.unsetFile(filepath)
-      Log.info(`🐛 Failed to load ${e}`, parentPath ? 2 : 1)
+      this.unsetFile(relativePath)
+      Log.info(`🐛 Failed to load ${e}`, 2)
+      console.error(e)
     }
   }
 
-  private unsetFile (filepath: string) {
+  private unsetFile(filepath: string) {
     delete this._files[filepath]
   }
 
-  private async isDirectory (filepath: string) {
-    const stat = await fs.lstat(filepath)
-    return stat.isDirectory()
+  private async loadDirectory(searchingPath: string) {
+    const files = await fg('**/*.*', {
+      cwd: searchingPath,
+      onlyFiles: true,
+      ignore: [
+        'node_modules/**',
+        'vendors/**',
+        ...Config.ignoreFiles,
+      ],
+      deep: Config.includeSubfolders ? undefined : 2,
+    })
+
+    for (const relative of files)
+      await this.loadFile(searchingPath, relative)
   }
 
-  private async loadDirectory (rootPath: string, dirStructure: 'auto' | 'file'| 'dir') {
-    const paths = await fs.readdir(rootPath)
-
-    for (const filename of paths) {
-      const filepath = path.resolve(rootPath, filename)
-      const isDirectory = await this.isDirectory(filepath)
-
-      if (['auto', 'file'].includes(dirStructure) && !isDirectory)
-        await this.loadFile(filepath, 'file', rootPath)
-
-      if (['auto', 'dir'].includes(dirStructure) && isDirectory) {
-        for (const p of await fs.readdir(filepath)) {
-          const subfilepath = path.resolve(filepath, p)
-          if (!await this.isDirectory(subfilepath))
-            await this.loadFile(subfilepath, 'dir', rootPath)
-          else if (Config.includeSubfolders)
-            await this.loadDirectory(subfilepath, 'dir')
-        }
-      }
+  private getMtime(filepath: string) {
+    try {
+      return fs.statSync(filepath).mtimeMs
+    }
+    catch {
+      return 0
     }
   }
 
-  private async watchOn (rootPath: string) {
+  private getRelativePath(filepath: string) {
+    let dirpath = this._locale_dirs.find(dir => filepath.startsWith(dir))
+    if (!dirpath)
+      return
+
+    let relative = path.relative(dirpath, filepath)
+
+    if (process.platform === 'win32') {
+      relative = relative.replace(/\\/g, '/')
+      dirpath = dirpath.replace(/\\/g, '/')
+    }
+
+    return { dirpath, relative }
+  }
+
+  private async onFileChanged(type: string, { fsPath: filepath }: { fsPath: string }) {
+    filepath = path.resolve(filepath)
+
+    // not tracking
+    if (type !== 'create' && !this._files[filepath])
+      return
+
+    // already up-to-date
+    if (type !== 'change' && this._files[filepath]?.mtime === this.getMtime(filepath)) {
+      Log.info(`🔄 Skipped on loading "${filepath}" (same mtime)`)
+      return
+    }
+
+    const { dirpath, relative } = this.getRelativePath(filepath) || {}
+    if (!dirpath || !relative)
+      return
+
+    Log.info(`🔄 File changed (${type}) ${relative}`)
+
+    // full reload if configured
+    if (Config.fullReloadOnChanged && ['delete', 'change', 'create'].includes(type)) {
+      this.throttledFullReload()
+      return
+    }
+
+    switch (type) {
+      case 'delete':
+        delete this._files[filepath]
+        this.throttledUpdate()
+        break
+
+      case 'create':
+      case 'change':
+        this.throttledLoadFile(dirpath, relative)
+        break
+    }
+  }
+
+  private async watchOn(rootPath: string) {
     Log.info(`\n👀 Watching change on ${rootPath}`)
     const watcher = workspace.createFileSystemWatcher(
-      new RelativePattern(
-        rootPath,
-        '**/*',
-      ),
+      new RelativePattern(rootPath, '**/*'),
     )
 
-    const updateFile = async (type: string, { fsPath: filepath }: { fsPath: string }) => {
-      if (this._ignoreChanges)
-        return
-      filepath = path.resolve(filepath)
-      const { ext, base } = path.parse(filepath)
-      const related = path.relative(rootPath, filepath)
-
-      if (!Global.getMatchedParser(ext))
-        return
-
-      Log.info(`🐱‍🚀 Update detected <${type}> ${filepath} [${related}]`)
-
-      if (Config.fullReloadOnChanged && ['del', 'change', 'create'].includes(type)) {
-        Log.info('🐱‍🚀 Perfroming a full reload')
-        await this.loadAll(false)
-        this.update()
-        return
-      }
-
-      switch (type) {
-        case 'del':
-          delete this._files[filepath]
-          this.update()
-          break
-
-        case 'change':
-        case 'create':
-          if (related !== base)
-            await this.loadFile(filepath, 'dir', rootPath)
-          else
-            await this.loadFile(filepath)
-          this.update()
-          break
-      }
-    }
-    watcher.onDidChange(updateFile.bind(this, 'change'))
-    watcher.onDidCreate(updateFile.bind(this, 'create'))
-    watcher.onDidDelete(updateFile.bind(this, 'del'))
+    watcher.onDidChange((e: any) => setTimeout(() => this.onFileChanged('change', e), FILEWATCHER_TIMEOUT), this, this._disposables)
+    watcher.onDidCreate((e: any) => setTimeout(() => this.onFileChanged('create', e), FILEWATCHER_TIMEOUT), this, this._disposables)
+    watcher.onDidDelete((e: any) => setTimeout(() => this.onFileChanged('delete', e), FILEWATCHER_TIMEOUT), this, this._disposables)
 
     this._disposables.push(watcher)
   }
 
-  private updateLocalesTree () {
+  private updateLocalesTree() {
     this._flattenLocaleTree = {}
+    const root = new LocaleTree({ keypath: '' })
 
-    const tree = new LocaleTree({ keypath: '' })
-    for (const file of Object.values(this._files))
-      this.updateTree(tree, file.value, '', '', file)
-    this._localeTree = tree
+    if (Global.namespaceEnabled) {
+      const namespaces = uniq(this.files.map(f => f.namespace)) as string[]
+      for (const ns of namespaces) {
+        const files = this.files.filter(f => f.namespace === ns)
+
+        for (const file of files) {
+          const value = ns ? set({}, ns, file.value) : file.value
+          this.updateTree(root, value, '', '', { ...file, meta: { namespace: file.namespace } })
+        }
+      }
+    }
+    else {
+      for (const file of Object.values(this._files))
+        this.updateTree(root, file.value, '', '', file)
+    }
+    this._localeTree = root
   }
 
-  private update () {
+  private update() {
     try {
       this.updateLocalesTree()
       this._onDidChange.fire(this.name)
+      Log.info('✅ Loading finished\n')
     }
     catch (e) {
       Log.error(e)
     }
   }
 
-  private async loadAll (watch = true) {
+  private async findLocaleDirs() {
     this._files = {}
-    let paths: string[] = []
+    this._locale_dirs = []
     if (this.localesPaths.length > 0) {
       try {
-        paths = await fg(this.localesPaths, {
+        this._locale_dirs = await fg(this.localesPaths, {
           cwd: this.rootpath,
           onlyDirectories: true,
         })
-      }
-      catch (e) {
-        Log.error(e)
-      }
-    }
-    if (paths.length === 0)
-      Log.info('\n⚠ No locales paths.')
 
-    for (const pathname of paths) {
-      try {
-        const fullpath = path.resolve(this.rootpath, pathname)
-        Log.info(`\n📂 Loading locales under ${fullpath}`)
-        await this.loadDirectory(fullpath, Config.dirStructure)
-        if (watch)
-          this.watchOn(fullpath)
+        this._locale_dirs = this._locale_dirs
+          .map(p => path.resolve(this.rootpath, p))
       }
       catch (e) {
         Log.error(e)
       }
     }
-    Log.info('\n✅ Loading finished')
-    Log.divider()
+
+    if (this._locale_dirs.length === 0) {
+      Log.info('\n⚠ No locales paths.')
+      return false
+    }
+
+    return true
+  }
+
+  private async loadAll(watch = true) {
+    for (const pathname of this._locale_dirs) {
+      try {
+        Log.info(`\n📂 Loading locales under ${pathname}`)
+        await this.loadDirectory(pathname)
+        if (watch)
+          this.watchOn(pathname)
+        if (!this.files.length)
+          window.showWarningMessage(i18n.t('prompt.no_locale_loaded'))
+      }
+      catch (e) {
+        Log.error(e)
+      }
+    }
   }
 }

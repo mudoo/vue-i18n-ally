@@ -1,15 +1,12 @@
 import { window } from 'vscode'
-import { ProgressSubmenuView } from '../../views/ProgressView'
+import { ProgressSubmenuItem, LocaleTreeItem } from '../../views'
+import { Global, PendingWrite, CurrentFile } from '../../core'
 import i18n from '../../i18n'
-import { LocaleTreeView } from '../../views/LocalesTreeView'
-import { Global } from '../../core/Global'
-import { CurrentFile } from '../../core/CurrentFile'
-import { PendingWrite } from '../../core/types'
 import { CommandOptions } from './common'
 
 const FULFILL_VALUE = ''
 
-export async function FulfillMissingKeysForProgress (item: ProgressSubmenuView) {
+export async function FulfillMissingKeysForProgress(item: ProgressSubmenuItem) {
   const Yes = i18n.t('prompt.button_yes')
   const locale = item.node.locale
   const keys = item.getKeys()
@@ -25,22 +22,24 @@ export async function FulfillMissingKeysForProgress (item: ProgressSubmenuView) 
   const pendings = keys.map(key => ({
     locale,
     value: FULFILL_VALUE,
-    filepath: Global.loader.getFilepathByKey(key, locale),
+    filepath: CurrentFile.loader.getFilepathByKey(key, locale),
     keypath: key,
   }))
 
-  await CurrentFile.loader.write(pendings)
+  return pendings
 }
 
-export async function FulfillAllMissingKeys () {
-  const Yes = i18n.t('prompt.button_yes')
-  const result = await window.showWarningMessage(
-    i18n.t('prompt.fullfill_missing_all_confirm'),
-    { modal: true },
-    Yes,
-  )
-  if (result !== Yes)
-    return
+export async function FulfillAllMissingKeys(prompt = true) {
+  if (prompt) {
+    const Yes = i18n.t('prompt.button_yes')
+    const result = await window.showWarningMessage(
+      i18n.t('prompt.fullfill_missing_all_confirm'),
+      { modal: true },
+      Yes,
+    )
+    if (result !== Yes)
+      return
+  }
 
   let pendings: PendingWrite[] = []
   const loader = CurrentFile.loader
@@ -56,13 +55,19 @@ export async function FulfillAllMissingKeys () {
       keypath: key,
     })))
   }
-  await CurrentFile.loader.write(pendings)
+
+  return pendings
 }
 
-export async function FulfillKeys (item?: LocaleTreeView | ProgressSubmenuView | CommandOptions) {
-  if (!item)
-    return FulfillAllMissingKeys()
+export async function FulfillKeys(item?: LocaleTreeItem | ProgressSubmenuItem | CommandOptions) {
+  let pendings: PendingWrite[] | undefined
 
-  if (item instanceof ProgressSubmenuView)
-    return FulfillMissingKeysForProgress(item)
+  if (!item)
+    pendings = await FulfillAllMissingKeys()
+
+  if (item instanceof ProgressSubmenuItem)
+    pendings = await FulfillMissingKeysForProgress(item)
+
+  if (pendings?.length)
+    await CurrentFile.loader.write(pendings, false)
 }

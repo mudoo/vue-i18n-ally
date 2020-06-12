@@ -1,52 +1,63 @@
 import { window } from 'vscode'
-import { LocaleTreeView } from '../../views/LocalesTreeView'
-import { Translator, CurrentFile, Config } from '../../core'
-import { Log } from '../../utils'
-import { ProgressSubmenuView } from '../../views/ProgressView'
+import { LocaleTreeItem, ProgressSubmenuItem } from '../../views'
+import { Translator, CurrentFile, Config, Global, LocaleNode, AccaptableTranslateItem } from '../../core'
 import i18n from '../../i18n'
-import { getNode, CommandOptions } from './common'
+import { getNodeOrRecord, CommandOptions, getNode } from './common'
 
-export async function TranslateSingleKey (item?: LocaleTreeView | CommandOptions) {
-  const node = getNode(item)
-  const targetLocales = item instanceof LocaleTreeView ? item.listedLocales : undefined
+export async function promptForSourceLocale(defaultLocale: string, node?: LocaleNode, to?: string) {
+  const locales = Global.allLocales
+  const placeHolder = i18n.t('prompt.select_source_language_for_translating', defaultLocale)
 
-  if (!node)
-    return
+  const result = await window.showQuickPick(locales
+    .map(locale => ({
+      label: locale,
+      description: node?.getValue(locale),
+    })), {
+    placeHolder,
+  })
 
-  if (node.type === 'tree')
-    return
+  if (result == null)
+    return undefined
 
-  const from = (item && !(item instanceof LocaleTreeView) && item.from) || Config.sourceLanguage
-
-  try {
-    await Translator.MachineTranslate(CurrentFile.loader, node, from, targetLocales)
-  }
-  catch (err) {
-    Log.error(err.toString())
-  }
+  return result.label || defaultLocale
 }
 
-export async function TranslateMultipleKeys (item: ProgressSubmenuView) {
-  const Yes = i18n.t('prompt.button_yes')
-  const to = item.node.locale
-  const from = Config.sourceLanguage
-  const keys = item.getKeys()
-  const result = await window.showWarningMessage(
-    i18n.t('prompt.translate_missing_confirm', keys.length, to, from),
-    { modal: true },
-    Yes,
-  )
-  if (result === Yes) {
-    window.showInformationMessage(i18n.t('prompt.translate_missing_in_progress'))
-    for (const key of keys)
-      await TranslateSingleKey({ locale: to, keypath: key })
-    window.showInformationMessage(i18n.t('prompt.translate_missing_done', keys.length))
-  }
-}
+export async function TranslateKeys(item?: LocaleTreeItem | ProgressSubmenuItem | CommandOptions) {
+  let source: string | undefined
 
-export async function TranslateKeys (item?: LocaleTreeView | ProgressSubmenuView | CommandOptions) {
-  if (item instanceof ProgressSubmenuView)
-    return TranslateMultipleKeys(item)
-  else
-    return TranslateSingleKey(item)
+  if (item && !(item instanceof LocaleTreeItem) && !(item instanceof ProgressSubmenuItem) && item.from) {
+    source = item.from
+  }
+  else {
+    const node = getNode(item)
+
+    source = Config.sourceLanguage
+    if (Config.translatePromptSource)
+      source = await promptForSourceLocale(source, node)
+
+    if (source == null)
+      return
+  }
+
+  let nodes: AccaptableTranslateItem[] = []
+  let targetLocales: string[] | undefined
+
+  if (item instanceof ProgressSubmenuItem) {
+    const to = item.node.locale
+    nodes = item.getKeys()
+      .map(key => CurrentFile.loader.getRecordByKey(key, to, true)!)
+      .filter(i => i)
+  }
+  else {
+    if (item instanceof LocaleTreeItem)
+      targetLocales = item.listedLocales
+    else
+      targetLocales = item?.locales
+
+    const node = getNodeOrRecord(item)
+    if (node)
+      nodes.push(node)
+  }
+
+  Translator.translateNodes(CurrentFile.loader, nodes, source, targetLocales)
 }
